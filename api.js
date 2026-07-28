@@ -49,15 +49,15 @@
 
     // Config (Google Apps Script URL)
     function getConfig() {
-        const defaultUrl = 'https://script.google.com/macros/s/AKfycbUp9Wk30GS3QOqyA3hXU_aoyS1SpJNCuHu73hWSe56XGipVpxYUY_AZNik2Xn0Q0w6/exec';
+        const defaultUrl = 'https://script.google.com/macros/s/AKfycbwr__Y-G_hnHOTT-NFwTq6naGDsk8x-52E4jcF6JqEqSovLqhnmdZxxilJgNy3a7y6e/exec';
         let config = localStorage.getItem(CONFIG_KEY);
         if (!config) {
             config = JSON.stringify({ appsScriptUrl: defaultUrl });
             localStorage.setItem(CONFIG_KEY, config);
         }
         let parsed = JSON.parse(config);
-        // Force override if blank from older runs
-        if (!parsed.appsScriptUrl || parsed.appsScriptUrl === '') {
+        // Force override if blank from older runs or if it contains the old template placeholder URL
+        if (!parsed.appsScriptUrl || parsed.appsScriptUrl === '' || parsed.appsScriptUrl.includes('AKfycbUp9Wk30GS3QOqy')) {
             parsed.appsScriptUrl = defaultUrl;
             localStorage.setItem(CONFIG_KEY, JSON.stringify(parsed));
         }

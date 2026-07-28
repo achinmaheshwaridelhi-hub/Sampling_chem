@@ -395,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
         displayUserRole.textContent = user.role;
 
         // Redirect based on role
-        if (user.role === 'admin' || user.role === 'entry') {
+        if (user.role === 'admin' || user.role === 'entry' || user.role === 'weighment') {
             screens.admin.classList.add('active');
             initAdminDashboard(user.role);
         } else if (user.role === 'lab1') {
@@ -497,11 +497,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const tabs = document.querySelectorAll('#screen-admin .tab-btn');
         const tabContents = document.querySelectorAll('#screen-admin .tab-content');
 
-        // Apply menu item visibility based on role (Entry Operator sees ONLY registration)
+        // Apply menu item visibility based on role (Entry Operator sees ONLY registration, Weighment sees ONLY weighment)
         tabs.forEach(tab => {
             const dataTab = tab.getAttribute('data-tab');
             if (role === 'entry') {
                 if (dataTab !== 'admin-register') {
+                    tab.style.display = 'none';
+                } else {
+                    tab.style.display = 'flex';
+                }
+            } else if (role === 'weighment') {
+                if (dataTab !== 'admin-weighment') {
                     tab.style.display = 'none';
                 } else {
                     tab.style.display = 'flex';
@@ -511,11 +517,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Force other tab contents to hide completely under the 'entry' operator session
+        // Force other tab contents to hide completely
         tabContents.forEach(content => {
             const id = content.getAttribute('id');
             if (role === 'entry') {
                 if (id !== 'tab-admin-register') {
+                    content.style.setProperty('display', 'none', 'important');
+                } else {
+                    content.style.display = '';
+                }
+            } else if (role === 'weighment') {
+                if (id !== 'tab-admin-weighment') {
                     content.style.setProperty('display', 'none', 'important');
                 } else {
                     content.style.display = '';
@@ -537,14 +549,26 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        // If Weighment role, force the weighment tab active and hide others
+        if (role === 'weighment') {
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            
+            const weighTab = document.querySelector('#screen-admin .tab-btn[data-tab="admin-weighment"]');
+            if (weighTab) {
+                weighTab.classList.add('active');
+                document.getElementById('tab-admin-weighment').classList.add('active');
+            }
+        }
+
         tabs.forEach(tab => {
             tab.removeEventListener('click', handleTabClick);
             tab.addEventListener('click', handleTabClick);
         });
 
         function handleTabClick(e) {
-            // SECURITY: Block tab clicking for Entry Operator role
-            if (role === 'entry') {
+            // SECURITY: Block tab clicking for Entry Operator and Weighment Operator roles
+            if (role === 'entry' || role === 'weighment') {
                 e.preventDefault();
                 return;
             }
@@ -714,8 +738,8 @@ document.addEventListener('DOMContentLoaded', function() {
             company_name: document.getElementById('reg-company').value.trim(),
             driver_name: document.getElementById('reg-driver').value.trim(),
             truck_reg_number: document.getElementById('reg-vehicle').value.trim(),
-            gross_weight: document.getElementById('reg-gross').value,
-            tare_weight: document.getElementById('reg-tare').value,
+            gross_weight: 0,
+            tare_weight: 0,
             photo_url: capturedPhotoBase64
         };
 

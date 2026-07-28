@@ -11,6 +11,7 @@
     const DEFAULT_USERS = [
         { username: 'admin', password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', role: 'admin', name: 'System Administrator' },
         { username: 'entry', password: '923fe53966c6cd9343e11af776cd4b05be315ea4b200b02e4d5dfb0f929b73bf', role: 'entry', name: 'Entry Gate Operator' },
+        { username: 'weighment', password: '612d15f5e3d7f9f473eedcd9325b55d321fa2ba1903b8a87826040510e8b451f', role: 'weighment', name: 'Weighment Operator' },
         { username: 'lab1', password: '68d0a03fbd404489b987e7e17ae517b2b0250bee0e719d0438d7e41129f76609', role: 'lab1', name: 'Lab Tech 1 (Moisture/Fineness)' },
         { username: 'lab2', password: '77812e70c9c6d7a0b7dbd8233f3cbe213f71ac0eecd1e6184ae5816095dab9a2', role: 'lab2', name: 'Lab Tech 2 (GCV/Ash)' }
     ];
@@ -249,8 +250,8 @@
 
         getTrucks: async function() {
             const user = this.getCurrentUser();
-            if (!user || (user.role !== 'admin' && user.role !== 'lab2')) {
-                throw new Error('Unauthorized: Admin or Lab 2 access required');
+            if (!user || (user.role !== 'admin' && user.role !== 'lab2' && user.role !== 'weighment')) {
+                throw new Error('Unauthorized: Admin, Lab 2, or Weighment access required');
             }
 
             if (this.isRemoteMode()) {
@@ -270,8 +271,8 @@
 
         updateWeighment: async function(truckId, grossWeight, tareWeight) {
             const user = this.getCurrentUser();
-            if (!user || user.role !== 'admin') {
-                throw new Error('Unauthorized: Admin access required');
+            if (!user || (user.role !== 'admin' && user.role !== 'weighment')) {
+                throw new Error('Unauthorized: Admin or Weighment access required');
             }
 
             grossWeight = Number(grossWeight) || 0;

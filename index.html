@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biomass Procurement - Secure Blind Testing System</title>
+    <!-- Premium Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Connection Mode Status Banner -->
+    <div id="connection-mode-banner" class="connection-banner offline">OFFLINE LOCALSTORAGE MODE</div>
+
+    <!-- App Header (Hidden on Login Screen) -->
+    <header id="app-header" style="display: none;">
+        <div class="logo-container">
+            <div class="logo-icon">B</div>
+            <div class="logo-text">Biomass<span>Blind</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <div class="header-user-badge">
+                <span class="user-dot"></span>
+                <span class="user-name" id="display-user-name">Loading...</span>
+                <span class="user-role" id="display-user-role">Guest</span>
+            </div>
+            <button class="btn-logout" id="btn-logout-action">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Logout
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main>
+
+        <!-- SCREEN: LOGIN -->
+        <section id="screen-login" class="screen active">
+            <div class="login-container card">
+                <div class="login-header">
+                    <div class="logo-icon" style="margin: 0 auto 1rem; width: 3rem; height: 3rem; font-size: 1.5rem;">B</div>
+                    <h1>Biomass Sampling</h1>
+                    <p>Enter credentials to access secure terminal</p>
+                </div>
+                <div id="login-alert" class="alert alert-danger" style="display: none;"></div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" placeholder="e.g. admin, lab1, lab2" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                        Sign In Securely
+                    </button>
+                </form>
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+                    <strong>Pilot Logins (Username & Password):</strong><br>
+                    • Admin: <code>admin</code> (Full privileges)<br>
+                    • Lab 1: <code>lab1</code> (Moisture & Fineness)<br>
+                    • Lab 2: <code>lab2</code> (GCV & Ash)
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN: ADMIN DASHBOARD -->
+        <section id="screen-admin" class="screen">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="admin-register">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Truck Registration
+                </button>
+                <button class="tab-btn" data-tab="admin-weighment" id="tab-btn-weighment">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Weighment Entries
+                </button>
+                <button class="tab-btn" data-tab="admin-composite">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                    Composite Mixing
+                </button>
+                <button class="tab-btn" data-tab="admin-reports">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    Compiled Reports
+                </button>
+                <button class="tab-btn" data-tab="admin-inspector">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    Barcode Inspector
+                </button>
+                <button class="tab-btn" data-tab="admin-activity" id="tab-btn-activity">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    Activity Log
+                </button>
+                <button class="tab-btn" data-tab="admin-settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    Settings
+                </button>
+            </div>
+
+            <!-- TAB 1: TRUCK REGISTRATION -->
+            <div id="tab-admin-register" class="tab-content active">
+                <div class="grid-2">
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">Register Incoming Truck</h3>
+                        <form id="truck-reg-form">
+                            <div class="form-group">
+                                <label for="reg-company">Biomass Supplier (Company)</label>
+                                <input type="text" id="reg-company" list="companies-list" placeholder="Start typing or select..." required>
+                                <datalist id="companies-list"></datalist>
+                            </div>
+                            <div class="form-group">
+                                <label for="reg-driver">Driver Name</label>
+                                <input type="text" id="reg-driver" placeholder="e.g. Gurpreet Singh" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="reg-vehicle">Truck Registration Number</label>
+                                <input type="text" id="reg-vehicle" placeholder="e.g. HR-55A-1234" required>
+                            </div>
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="reg-gross">Gross Weight (kg) - Optional</label>
+                                    <input type="number" id="reg-gross" placeholder="e.g. 24000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-tare">Tare Weight (kg) - Optional</label>
+                                    <input type="number" id="reg-tare" placeholder="e.g. 11000">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Driver / Truck Photo Verification</label>
+                                <div style="display: flex; gap: 1rem; align-items: center;">
+                                    <button type="button" class="btn btn-secondary" id="btn-trigger-camera">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                        Use Device Camera
+                                    </button>
+                                    <span id="photo-status" class="badge badge-pending">No Photo Attached</span>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                                Register Truck & Generate Barcodes
+                            </button>
+                        </form>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <!-- Camera Stream Overlay Panel -->
+                        <div class="card" id="camera-stream-panel" style="display: none; margin-bottom: 0;">
+                            <h3 class="card-title">Verifying Photo Source</h3>
+                            <div class="camera-wrapper">
+                                <video id="webcam-feed" autoplay playsinline class="camera-preview"></video>
+                                <div class="camera-overlay-box"></div>
+                            </div>
+                            <div class="camera-controls">
+                                <button type="button" class="btn btn-secondary" id="btn-cancel-photo">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="btn-snap-photo">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                                    Capture Photo
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Captured Image Preview Panel -->
+                        <div class="card" id="captured-preview-panel" style="display: none; margin-bottom: 0;">
+                            <h3 class="card-title">Captured Verification Image</h3>
+                            <div class="camera-wrapper">
+                                <img id="captured-image-img" class="camera-preview" src="">
+                            </div>
+                            <button type="button" class="btn btn-danger btn-sm" id="btn-delete-photo" style="width: 100%;">
+                                Delete & Retake Photo
+                            </button>
+                        </div>
+
+                        <!-- Newly Generated Barcodes Outputs -->
+                        <div class="card" id="admin-barcodes-result" style="display: none; margin-bottom: 0;">
+                            <h3 class="card-title">Generated Opaque Barcode</h3>
+                            <p style="font-size: 0.85rem; margin-bottom: 1rem;">Attach this physical barcode to the container. It contains no human-readable supplier information.</p>
+                            
+                            <div class="barcode-card-container">
+                                <!-- Sample 1 Card -->
+                                <div class="barcode-card" style="width: 100%;">
+                                    <h4>Sample-1 (Moisture / Fineness)</h4>
+                                    <div style="font-size: 1.1rem; font-weight: bold; background: #e0f2fe; color: #0369a1; padding: 0.35rem 1rem; border-radius: 4px; margin: 0.5rem 0;" id="s1-group-code-display">MIXING GROUP: --</div>
+                                    <div id="s1-qr-expiry" style="font-size: 0.85rem; margin-bottom: 0.5rem; text-align: center;"></div>
+                                    <canvas id="qr-canvas-s1"></canvas>
+                                    <div class="barcode-card-actions">
+                                        <span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Label Options</span>
+                                        <div style="display: flex; gap: 0.25rem;">
+                                            <button class="btn btn-secondary btn-sm" id="btn-print-s1">Print</button>
+                                            <button class="btn btn-primary btn-sm" id="btn-download-s1">Download</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: WEIGHMENT ENTRIES -->
+            <div id="tab-admin-weighment" class="tab-content">
+                <div class="card">
+                    <h3 class="card-title">Daily Weighment Log</h3>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                        <input type="text" id="weigh-search" placeholder="Search by Truck ID, Company, or Vehicle Reg..." style="flex: 1; padding: 0.75rem; border-radius: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white;">
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Truck ID</th>
+                                    <th>Reg Date</th>
+                                    <th>Supplier Name</th>
+                                    <th>Vehicle Number</th>
+                                    <th>Gross (kg)</th>
+                                    <th>Tare (kg)</th>
+                                    <th>Net (kg)</th>
+                                    <th>Photo</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-weighment-body">
+                                <!-- Dynamically Rendered -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Weighment Input Drawer Form (Visible when clicking Weigh update) -->
+                <div class="card" id="weighment-edit-card" style="display: none;">
+                    <h3 class="card-title" id="weigh-edit-title">Update Weights for Truck</h3>
+                    <form id="weigh-edit-form">
+                        <input type="hidden" id="weigh-edit-truck-id">
+                        <div class="grid-3">
+                            <div class="form-group">
+                                <label for="weigh-edit-gross">Gross Weight (kg)</label>
+                                <input type="number" id="weigh-edit-gross" placeholder="e.g. 24800" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="weigh-edit-tare">Tare Weight (kg)</label>
+                                <input type="number" id="weigh-edit-tare" placeholder="e.g. 11500" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Calculated Net Weight (kg)</label>
+                                <div id="weigh-edit-net" style="font-size: 1.5rem; font-weight: 700; color: var(--primary); padding-top: 0.5rem;">0 kg</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                            <button type="button" class="btn btn-secondary" id="btn-cancel-weigh">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Weight Record</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 3: COMPOSITE BATCHING -->
+            <div id="tab-admin-composite" class="tab-content">
+                <div class="grid-2">
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">Daily Composite Sample Manager</h3>
+                        <p style="font-size: 0.9rem; margin-bottom: 1.5rem;">Select a supplier and date to compile composite Samples from all their incoming trucks today.</p>
+                        
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label for="comp-select-company">Select Supplier</label>
+                                <select id="comp-select-company">
+                                    <option value="">-- Choose Supplier --</option>
+                                    <!-- Dynamic -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="comp-select-date">Select Date</label>
+                                <input type="date" id="comp-select-date">
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 1.5rem;">
+                            <button type="button" class="btn btn-secondary" id="btn-load-parent-samples">
+                                Find Arrived Samples
+                            </button>
+                        </div>
+
+                        <div id="composite-selection-table-wrapper" style="display: none;">
+                            <h4 style="margin-bottom: 0.75rem; font-size: 0.95rem;">Select daily truck samples to mix into Composite Batch:</h4>
+                            <div class="table-responsive" style="margin-bottom: 1.5rem;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 40px;"><input type="checkbox" id="check-all-samples"></th>
+                                            <th>Truck ID</th>
+                                            <th>Vehicle Reg</th>
+                                            <th>Intake Barcode (S1)</th>
+                                            <th>Mixing Group</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="composite-parent-table-body">
+                                        <!-- Dynamically Rendered -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary" id="btn-create-composite" style="width: 100%;">
+                                Compile Composite Batch & Generate Child Barcodes
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Composite Barcode Printable Outputs -->
+                    <div class="card" id="composite-output-card" style="display: none; margin-bottom: 0;">
+                        <h3 class="card-title">Generated Composite Barcodes (Child Lots)</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">The composite batch has been created. Three physical lots are tracked. Give the <strong>Test Lot</strong> to Lab 2.</p>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Test Lot -->
+                            <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--secondary);">
+                                <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">1. Lab Testing Lot</h4>
+                                <div id="comp-test-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <canvas id="qr-canvas-comp-test"></canvas>
+                                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
+                                     <span style="color: #9ca3af;">Testing Lot Sticker</span>
+                                     <div style="display: flex; gap: 0.25rem;">
+                                         <button class="btn btn-secondary btn-sm" id="btn-print-comp-test">Print</button>
+                                         <button class="btn btn-primary btn-sm" id="btn-download-comp-test">Download</button>
+                                     </div>
+                                 </div>
+                            </div>
+                            <!-- Referee Lot -->
+                            <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--accent);">
+                                <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">2. Referee/Retain Lot (Keep in Storage)</h4>
+                                <div id="comp-ref-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <canvas id="qr-canvas-comp-ref"></canvas>
+                                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
+                                     <span style="color: #9ca3af;">Referee Storage Sticker</span>
+                                     <div style="display: flex; gap: 0.25rem;">
+                                         <button class="btn btn-secondary btn-sm" id="btn-print-comp-ref">Print</button>
+                                         <button class="btn btn-primary btn-sm" id="btn-download-comp-ref">Download</button>
+                                     </div>
+                                 </div>
+                            </div>
+                            <!-- Vendor Lot -->
+                            <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid #a855f7;">
+                                <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">3. Vendor Lot (Send to Supplier)</h4>
+                                <div id="comp-vend-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <canvas id="qr-canvas-comp-vend"></canvas>
+                                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
+                                     <span style="color: #9ca3af;">Vendor Lot Sticker</span>
+                                     <div style="display: flex; gap: 0.25rem;">
+                                         <button class="btn btn-secondary btn-sm" id="btn-print-comp-vend">Print</button>
+                                         <button class="btn btn-primary btn-sm" id="btn-download-comp-vend">Download</button>
+                                     </div>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: COMPILED REPORTS -->
+            <div id="tab-admin-reports" class="tab-content">
+                <div class="card">
+                    <h3 class="card-title">Generate Office Biomass Quality Report</h3>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label for="report-select-company">Supplier Name</label>
+                            <select id="report-select-company">
+                                <option value="">-- Choose Supplier --</option>
+                                <!-- Dynamic -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="report-select-date">Date of Intake</label>
+                            <input type="date" id="report-select-date">
+                        </div>
+                        <div class="form-group" style="justify-content: flex-end; margin-bottom: 0;">
+                            <button type="button" class="btn btn-primary" id="btn-compile-report" style="width: 100%; height: 2.75rem;">
+                                Compile Report Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Report Layout -->
+                <div class="card" id="report-output-panel" style="display: none;">
+                    <div class="report-header-block">
+                        <div>
+                            <h2 style="font-size: 1.75rem; margin-bottom: 0.25rem;" id="report-company-title">Apex Biomass Corp</h2>
+                            <p style="font-size: 0.9rem;">Procurement & Quality Summary Report — Date: <span id="report-date-title" style="font-weight: 600; color: white;">2026-07-25</span></p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" id="btn-print-report-action">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 9 6 2 18 2 18 9"></polygon><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                Print Report
+                            </button>
+                            <button class="btn btn-primary" id="btn-export-pdf-action" style="background: #3b82f6; border: none; font-weight: 500;">
+                                📄 Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Grid -->
+                    <div class="report-summary-cards">
+                        <div class="report-summary-card">
+                            <div class="report-summary-lbl">Total Trucks</div>
+                            <div class="report-summary-val" id="summary-truck-count">0</div>
+                        </div>
+                        <div class="report-summary-card">
+                            <div class="report-summary-lbl">Total Net Weight</div>
+                            <div class="report-summary-val" id="summary-net-weight">0 kg</div>
+                        </div>
+                        <div class="report-summary-card">
+                            <div class="report-summary-lbl">Avg Moisture</div>
+                            <div class="report-summary-val" id="summary-avg-moisture">0%</div>
+                        </div>
+                        <div class="report-summary-card">
+                            <div class="report-summary-lbl">Avg Fineness</div>
+                            <div class="report-summary-val" id="summary-avg-fineness">0%</div>
+                        </div>
+                        <div class="report-summary-card">
+                            <div class="report-summary-lbl">Composite GCV / Ash</div>
+                            <div class="report-summary-val" style="font-size: 1.15rem; line-height: 1.3; margin-top: 0.5rem;" id="summary-avg-composite">0 kcal / 0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Truck list -->
+                    <h4 style="margin-bottom: 0.75rem;">Individual Truck Samples & Weight Records</h4>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Truck ID</th>
+                                    <th>Vehicle Reg</th>
+                                    <th>Driver Name</th>
+                                    <th>Weighment (Net)</th>
+                                    <th>Sample-1 (Blind)</th>
+                                    <th>Moisture %</th>
+                                    <th>Fineness %</th>
+                                    <th>Composite Code</th>
+                                    <th>GCV (kcal/kg)</th>
+                                    <th>Ash %</th>
+                                    <th>Verify</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-rows-body">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: BARCODE INSPECTOR -->
+            <div id="tab-admin-inspector" class="tab-content">
+                <div class="grid-2">
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="card" style="margin-bottom: 0;">
+                            <h3 class="card-title">Barcode Inspector & Lookup</h3>
+                            <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Scan or search any barcode (Intake Sample-1, Lab Test Lot, Referee Lot, or Vendor Lot) to view its full tracking history, weights, and test results.</p>
+                            
+                            <!-- Camera Scan Trigger -->
+                            <div class="scan-trigger-section" id="inspector-scan-trigger">
+                                <div class="scan-icon">📷</div>
+                                <div>
+                                    <h4 style="margin-bottom: 0.25rem;">Scan Barcode via Camera</h4>
+                                    <p style="font-size: 0.85rem;">Use webcam/phone camera to scan the physical sticker barcode</p>
+                                </div>
+                            </div>
+
+                            <!-- Barcode Scanner Display Area -->
+                            <div id="inspector-scanner-container" style="display: none; position: relative; margin-bottom: 1.5rem;">
+                                <div class="camera-wrapper" style="aspect-ratio: 16/9; max-height: 250px;">
+                                    <div id="inspector-qr-reader" style="width: 100%; height: 100%;"></div>
+                                    <div class="scanner-laser"></div>
+                                </div>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-inspector-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                                    Turn Camera Off
+                                </button>
+                            </div>
+                            
+                            <!-- Manual input & file upload -->
+                            <div class="scan-input-manual">
+                                <div class="form-group">
+                                    <label for="inspector-manual-input">Or Scan with USB Scanner / Type Barcode ID</label>
+                                    <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                        <input type="text" id="inspector-manual-input" placeholder="Type barcode ID (e.g. S1-1234567, CMP-...)" style="flex: 1;">
+                                        <button type="button" class="btn btn-secondary" id="btn-inspector-lookup">Search</button>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0; border-top: 1px dashed #e5e7eb; padding-top: 0.75rem;">
+                                    <label for="inspector-file-input">Or Upload Barcode Image / PDF Sticker</label>
+                                    <input type="file" id="inspector-file-input" accept="image/*,application/pdf" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; margin-top: 0.25rem;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inspector Results Panel (Hidden until lookup succeeds) -->
+                    <div class="card" id="inspector-result-card" style="display: none; margin-bottom: 0;">
+                        <h3 class="card-title">Barcode Information</h3>
+                        <div id="inspector-result-content">
+                            <!-- Dynamically Rendered -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ACTIVITY LOG & EXCEPTIONS -->
+            <div id="tab-admin-activity" class="tab-content">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Exceptions / Alerts View Panel -->
+                    <div class="card" style="margin-bottom: 0; border: 1.5px solid #fca5a5; background: rgba(254, 226, 226, 0.05);">
+                        <h3 class="card-title" style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;">
+                            ⚠️ Exceptions & Security Violations View
+                        </h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 1.25rem;">This panel highlights critical system exceptions, double-blind bypass operations, locked accounts, and expired scan attempts requiring investigation.</p>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Exception Type</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="exceptions-log-body">
+                                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No critical exceptions flagged.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- General Activity Audit Log Panel -->
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">System Activity Log</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 1.25rem;">Full audit trace of actions performed across the blind sampling network (QR generation, reissues, logins, overrides).</p>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Operator</th>
+                                        <th>Action Taken</th>
+                                        <th>Audit Message / Target ID</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activity-log-body">
+                                    <!-- Dynamic -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: SYSTEM SETTINGS -->
+            <div id="tab-admin-settings" class="tab-content">
+                <div class="card">
+                    <h3 class="card-title">System Settings</h3>
+                    <div class="form-group">
+                        <label for="settings-api-url">Google Apps Script Web App Deployment URL</label>
+                        <input type="url" id="settings-api-url" placeholder="https://script.google.com/macros/s/.../exec">
+                        <p style="font-size: 0.8rem; margin-top: 0.5rem;">Leave empty to operate in simulated LocalStorage Mode. Paste your Apps Script deployment link to sync with Google Sheets.</p>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button class="btn btn-secondary" id="btn-settings-reset-db">Reset Local Database (Demo State)</button>
+                        <button class="btn btn-secondary" id="btn-settings-test-connection" style="background: #3b82f6; color: white; border: none;">Test Connection</button>
+                        <button class="btn btn-primary" id="btn-settings-save">Save Configuration</button>
+                    </div>
+                    <div id="settings-connection-status" style="display: none; margin-top: 1.5rem; padding: 1rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid transparent; line-height: 1.5;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN: LAB 1 (MOISTURE & FINENESS) -->
+        <section id="screen-lab1" class="screen">
+            <div class="grid-2">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">Lab Station 1 — Moisture & Fineness</h3>
+                        
+                        <!-- Camera Scan Trigger -->
+                        <div class="scan-trigger-section" id="lab1-scan-trigger">
+                            <div class="scan-icon">📷</div>
+                            <div>
+                                <h4 style="margin-bottom: 0.25rem;">Scan Sample-1 Barcode</h4>
+                                <p style="font-size: 0.85rem;">Use laptop/device webcam to scan the opaque container label</p>
+                            </div>
+                        </div>
+
+                        <!-- Barcode Scanner Display Area -->
+                        <div id="lab1-scanner-container" style="display: none; position: relative; margin-bottom: 1.5rem;">
+                            <div class="camera-wrapper" style="aspect-ratio: 16/9; max-height: 250px;">
+                                <div id="lab1-qr-reader" style="width: 100%; height: 100%;"></div>
+                                <div class="scanner-laser"></div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab1-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                                Turn Camera Off
+                            </button>
+                        </div>
+
+                         <!-- Manual input fallback -->
+                         <div class="scan-input-manual">
+                             <div class="form-group">
+                                 <label for="lab1-manual-input">Or Scan with USB Scanner / Type below</label>
+                                 <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                     <input type="password" id="lab1-manual-input" placeholder="Scan barcode..." style="flex: 1;">
+                                     <button type="button" class="btn btn-secondary" id="btn-lab1-lookup">Search</button>
+                                 </div>
+                             </div>
+                             <div class="form-group" style="margin-bottom: 0; border-top: 1px dashed #e5e7eb; padding-top: 0.75rem;">
+                                 <label for="lab1-file-input">Or Upload Barcode Image / PDF Sticker (for Pilot Project)</label>
+                                 <input type="file" id="lab1-file-input" accept="image/*,application/pdf" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; margin-top: 0.25rem;">
+                             </div>
+                         </div>
+                    </div>
+
+                    <!-- Blind Entry Form (Hidden until barcode lookup succeeds) -->
+                    <div class="card" id="lab1-entry-card" style="display: none; margin-bottom: 0;">
+                        <div id="lab1-alert" class="alert" style="display: none;"></div>
+                        <h3 class="card-title">Blind Test Details</h3>
+                        <div class="lab-meta-display" style="margin-bottom: 1.5rem;">
+                            <span>CONTAINER STATUS:</span>
+                            <span id="lab1-blind-code" style="font-weight: bold; color: var(--primary);">VERIFIED</span>
+                        </div>
+                        
+                        <form id="lab1-entry-form">
+                            <input type="hidden" id="lab1-barcode-id">
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="lab1-moisture">Moisture Content (%)</label>
+                                    <input type="number" step="0.01" id="lab1-moisture" placeholder="0.00" required min="0" max="100">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lab1-fineness">Fineness Value (%)</label>
+                                    <input type="number" step="0.01" id="lab1-fineness" placeholder="0.00" required min="0" max="100">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                                Lock & Submit Results
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lab History (Blind) -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h3 class="card-title">Today's Station 1 Submissions</h3>
+                    <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Verification list of locked samples submitted by your account. Identity mappings are completely blind.</p>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Submission Ref</th>
+                                    <th>Moisture (%)</th>
+                                    <th>Fineness (%)</th>
+                                    <th>Submission Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lab1-history-body">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN: LAB 2 (GCV & ASH) -->
+        <section id="screen-lab2" class="screen">
+            <div class="grid-2">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">Lab Station 2 — Composite GCV & Ash</h3>
+                        
+                        <!-- Camera Scan Trigger -->
+                        <div class="scan-trigger-section" id="lab2-scan-trigger">
+                            <div class="scan-icon">📷</div>
+                            <div>
+                                <h4 style="margin-bottom: 0.25rem;">Scan Composite (Child) Barcode</h4>
+                                <p style="font-size: 0.85rem;">Use webcam to scan the opaque composite container test lot label</p>
+                            </div>
+                        </div>
+
+                        <!-- Barcode Scanner Display Area -->
+                        <div id="lab2-scanner-container" style="display: none; position: relative; margin-bottom: 1.5rem;">
+                            <div class="camera-wrapper" style="aspect-ratio: 16/9; max-height: 250px;">
+                                <div id="lab2-qr-reader" style="width: 100%; height: 100%;"></div>
+                                <div class="scanner-laser"></div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab2-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                                Turn Camera Off
+                            </button>
+                        </div>
+                        
+                        <!-- Manual input fallback -->
+                         <div class="scan-input-manual">
+                             <div class="form-group">
+                                 <label for="lab2-manual-input">Or Scan with USB Scanner / Type below</label>
+                                 <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                     <input type="password" id="lab2-manual-input" placeholder="Scan barcode..." style="flex: 1;">
+                                     <button type="button" class="btn btn-secondary" id="btn-lab2-lookup">Search</button>
+                                 </div>
+                             </div>
+                             <div class="form-group" style="margin-bottom: 0; border-top: 1px dashed #e5e7eb; padding-top: 0.75rem;">
+                                 <label for="lab2-file-input">Or Upload Barcode Image / PDF Sticker (for Pilot Project)</label>
+                                 <input type="file" id="lab2-file-input" accept="image/*,application/pdf" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; margin-top: 0.25rem;">
+                             </div>
+                         </div>
+                    </div>
+
+                    <!-- Mixing Group Barcode Generator for Lab 2 -->
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3 class="card-title">Generate Composite Barcodes</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Enter the 3-letter Mixing Group Code from the containers (e.g. B7X) to generate and print composite labels.</p>
+                        <div class="form-group">
+                            <label for="lab2-group-code-input">Mixing Group Code</label>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                                <input type="text" id="lab2-group-code-input" placeholder="e.g. B7X" style="text-transform: uppercase; flex: 1;">
+                                <button type="button" class="btn btn-primary" id="btn-lab2-generate-composite">Generate</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Lab 2 Composite Barcode Output Area (Hidden until generated) -->
+                        <div id="lab2-composite-output" style="display: none; margin-top: 1rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+                            <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--primary);">Generated Composite Labels:</h4>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem;">
+                                <!-- Test Lot -->
+                                <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--secondary);">
+                                    <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">1. Lab Testing Lot (-T)</h4>
+                                    <div id="lab2-test-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <canvas id="qr-canvas-lab2-test"></canvas>
+                                    <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-test">Print</button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="btn-download-lab2-test">Download</button>
+                                    </div>
+                                </div>
+                                <!-- Referee Lot -->
+                                <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--accent);">
+                                    <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">2. Referee/Retain Lot (-R)</h4>
+                                    <div id="lab2-ref-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <canvas id="qr-canvas-lab2-ref"></canvas>
+                                    <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-ref">Print</button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="btn-download-lab2-ref">Download</button>
+                                    </div>
+                                </div>
+                                <!-- Vendor Lot -->
+                                <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid #a855f7;">
+                                    <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">3. Vendor Lot (-V)</h4>
+                                    <div id="lab2-vend-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <canvas id="qr-canvas-lab2-vend"></canvas>
+                                    <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-vend">Print</button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="btn-download-lab2-vend">Download</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blind Entry Form (Hidden until barcode lookup succeeds) -->
+                    <div class="card" id="lab2-entry-card" style="display: none; margin-bottom: 0;">
+                        <div id="lab2-alert" class="alert" style="display: none;"></div>
+                        <h3 class="card-title">Blind Composite Details</h3>
+                        <div class="lab-meta-display" style="margin-bottom: 1.5rem;">
+                            <span>COMPOSITE STATUS:</span>
+                            <span id="lab2-blind-code" style="font-weight: bold; color: var(--secondary);">VERIFIED</span>
+                        </div>
+                        
+                        <form id="lab2-entry-form">
+                            <input type="hidden" id="lab2-barcode-id">
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="lab2-gcv">GCV Value (kcal/kg)</label>
+                                    <input type="number" id="lab2-gcv" placeholder="e.g. 3800" required min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lab2-ash">Ash Content (%)</label>
+                                    <input type="number" step="0.01" id="lab2-ash" placeholder="0.00" required min="0" max="100">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                                Lock & Submit Results
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lab History (Blind) -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h3 class="card-title">Today's Station 2 Submissions</h3>
+                    <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Verification list of locked composite samples submitted by your account. Mappings are completely blind.</p>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Submission Ref</th>
+                                    <th>GCV (kcal/kg)</th>
+                                    <th>Ash Content (%)</th>
+                                    <th>Submission Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lab2-history-body">
+                                <!-- Dynamic -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Hidden Printable Output Container -->
+    <div id="print-section" style="display: none;"></div>
+
+    <!-- Photo Lightbox Modal (For viewing truck photos) -->
+    <div id="lightbox" class="photo-lightbox" onclick="this.style.display='none'">
+        <button class="photo-lightbox-close" onclick="document.getElementById('lightbox').style.display='none'">&times;</button>
+        <img id="lightbox-img" src="" alt="Truck Image Preview">
+        <p style="margin-top: 1rem; font-size: 1rem; color: white;" id="lightbox-caption">Truck Photo Preview</p>
+    </div>
+
+    <!-- External Library CDNs (Preload) -->
+    <!-- QRCode library for QR code rendering -->
+    <script src="lib/qrcode.min.js"></script>
+    
+    <!-- Html5-Qrcode library for camera barcode scanning -->
+    <script src="lib/html5-qrcode.min.js"></script>
+
+    <!-- PDF.js library for offline PDF barcode scanning in pilot tests -->
+    <script src="lib/pdf.min.js"></script>
+
+    <!-- App JavaScript files -->
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

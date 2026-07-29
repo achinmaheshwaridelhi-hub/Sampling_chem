@@ -250,8 +250,8 @@
 
         getTrucks: async function() {
             const user = this.getCurrentUser();
-            if (!user || (user.role !== 'admin' && user.role !== 'lab2' && user.role !== 'weighment')) {
-                throw new Error('Unauthorized: Admin, Lab 2, or Weighment access required');
+            if (!user || (user.role !== 'admin' && user.role !== 'lab2' && user.role !== 'weighment' && user.role !== 'entry')) {
+                throw new Error('Unauthorized: Admin, Lab 2, Weighment, or Entry access required');
             }
 
             if (this.isRemoteMode()) {

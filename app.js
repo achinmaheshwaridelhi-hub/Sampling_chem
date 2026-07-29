@@ -561,6 +561,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        if (role === 'admin' || role === 'entry') {
+            loadRecentRegistrations();
+        }
+
         tabs.forEach(tab => {
             tab.removeEventListener('click', handleTabClick);
             tab.addEventListener('click', handleTabClick);
@@ -655,6 +659,123 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             console.error('Failed to load companies list:', e);
+        }
+    }
+
+    async function loadRecentRegistrations() {
+        const user = window.BiomassAPI.getCurrentUser();
+        if (!user) return;
+        
+        const tbody = document.getElementById('recent-reg-table-body');
+        if (!tbody) return;
+        
+        try {
+            const trucks = await window.BiomassAPI.getTrucks();
+            
+            // Filter based on role
+            let filtered = [];
+            if (user.role === 'entry') {
+                const todayStr = new Date().toISOString().substring(0, 10);
+                filtered = trucks.filter(t => t.entry_date === todayStr);
+            } else {
+                // admin sees everything
+                filtered = trucks;
+            }
+            
+            // Sort newest registrations first
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.entry_date + 'T' + a.entry_time);
+                const dateB = new Date(b.entry_date + 'T' + b.entry_time);
+                return dateB - dateA;
+            });
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No registered trucks found.</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            filtered.forEach(truck => {
+                const tr = document.createElement('tr');
+                
+                // Actions column
+                const tdActions = document.createElement('td');
+                
+                const btnView = document.createElement('button');
+                btnView.className = 'btn btn-secondary btn-sm';
+                btnView.style.marginRight = '0.25rem';
+                btnView.textContent = 'View';
+                btnView.onclick = async () => {
+                    const encrypted = await encryptPayload(truck.sample1_barcode_id);
+                    document.getElementById('s1-group-code-display').textContent = `MIXING GROUP: ${truck.daily_group_code || 'N/A'}`;
+                    
+                    // Render code
+                    if (typeof JsBarcode !== 'undefined') {
+                        JsBarcode(document.getElementById('qr-canvas-s1'), encrypted, {
+                            format: "CODE128", width: 2, height: 60, displayValue: false
+                        });
+                    } else {
+                        QRCode.toCanvas(document.getElementById('qr-canvas-s1'), encrypted, {
+                            errorCorrectionLevel: 'H', width: 180, margin: 2
+                        });
+                    }
+                    
+                    startQrExpiryCountdown(Date.now(), 's1-qr-expiry');
+                    document.getElementById('admin-barcodes-result').style.display = 'block';
+                    setupBarcodePrintTriggers(truck.sample1_barcode_id, truck.daily_group_code);
+                    
+                    // Scroll view into display
+                    document.getElementById('admin-barcodes-result').scrollIntoView({ behavior: 'smooth' });
+                };
+                
+                const btnPrint = document.createElement('button');
+                btnPrint.className = 'btn btn-primary btn-sm';
+                btnPrint.textContent = 'Print';
+                btnPrint.onclick = async () => {
+                    const encrypted = await encryptPayload(truck.sample1_barcode_id);
+                    const printContainer = document.getElementById('print-section');
+                    printContainer.innerHTML = `
+                        <div class="print-label-view" style="text-align: center;">
+                            <div style="font-size: 14pt; font-weight: bold; border: 2px solid black; padding: 4px 10px; margin-bottom: 8px; display: inline-block;">
+                                MIXING GROUP: ${truck.daily_group_code || 'N/A'}
+                            </div>
+                            <div>
+                                <canvas id="print-qr-target"></canvas>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (typeof JsBarcode !== 'undefined') {
+                        JsBarcode(document.getElementById('print-qr-target'), encrypted, {
+                            format: "CODE128", width: 2.7, height: 65, displayValue: false
+                        });
+                        setTimeout(() => { window.print(); }, 200);
+                    } else {
+                        QRCode.toCanvas(document.getElementById('print-qr-target'), encrypted, {
+                            errorCorrectionLevel: 'H', width: 230, margin: 2
+                        }, function(err) {
+                            if (err) console.error(err);
+                            setTimeout(() => { window.print(); }, 200);
+                        });
+                    }
+                };
+                
+                tdActions.appendChild(btnView);
+                tdActions.appendChild(btnPrint);
+                
+                tr.innerHTML = `
+                    <td style="font-weight: bold;">${truck.truck_id}</td>
+                    <td>${truck.entry_date} ${truck.entry_time.substring(0, 5)}</td>
+                    <td>${truck.company_name}</td>
+                    <td>${truck.truck_reg_number}</td>
+                    <td>${truck.driver_name}</td>
+                    <td><span class="badge badge-complete">${truck.daily_group_code || 'N/A'}</span></td>
+                `;
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger);">Failed to load recent registrations: ${err.message}</td></tr>`;
         }
     }
 
@@ -776,6 +897,7 @@ document.addEventListener('DOMContentLoaded', function() {
             truckRegForm.reset();
             document.getElementById('btn-delete-photo').click(); 
             loadSupplierDataLists(); 
+            loadRecentRegistrations();
             
             alert('Truck registered successfully! Encrypted QR code generated.');
         } catch (err) {
@@ -791,20 +913,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const encrypted = await encryptPayload(s1Id);
             printContainer.innerHTML = `
                 <div class="print-label-view" style="text-align: center;">
-                    <div style="font-size: 24pt; font-weight: bold; border: 4px solid black; padding: 10px; margin-bottom: 12px; display: inline-block;">
+                    <div style="font-size: 14pt; font-weight: bold; border: 2px solid black; padding: 4px 10px; margin-bottom: 8px; display: inline-block;">
                         MIXING GROUP: ${dailyGroupCode || 'N/A'}
                     </div>
                     <div>
                         <canvas id="print-qr-target"></canvas>
                     </div>
-                    <div style="font-size: 11pt; font-family: monospace; margin-top: 8px;">
-                        ${s1Id}
-                    </div>
                 </div>
             `;
             QRCode.toCanvas(document.getElementById('print-qr-target'), encrypted, {
                 errorCorrectionLevel: 'H',
-                width: 150,
+                width: 230,
                 margin: 2
             }, function(err) {
                 if (err) console.error(err);
@@ -1095,18 +1214,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const encrypted = await encryptPayload(lotId);
             printContainer.innerHTML = `
                 <div class="print-label-view" style="text-align: center;">
-                    <h3 style="font-size: 18pt; font-weight: bold; margin: 0 0 10px 0;">${type}</h3>
+                    <h3 style="font-size: 14pt; font-weight: bold; margin: 0 0 10px 0;">${type}</h3>
                     <div>
                         <canvas id="print-qr-target"></canvas>
-                    </div>
-                    <div style="font-size: 11pt; font-family: monospace; margin-top: 8px;">
-                        ${lotId}
                     </div>
                 </div>
             `;
             QRCode.toCanvas(document.getElementById('print-qr-target'), encrypted, {
                 errorCorrectionLevel: 'H',
-                width: 150,
+                width: 230,
                 margin: 2
             }, function(err) {
                 if (err) console.error(err);
@@ -1905,18 +2021,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         const encrypted = await encryptPayload(lotId);
                         printContainer.innerHTML = `
                             <div class="print-label-view" style="text-align: center;">
-                                <h3 style="font-size: 18pt; font-weight: bold; margin: 0 0 10px 0;">${type}</h3>
+                                <h3 style="font-size: 14pt; font-weight: bold; margin: 0 0 10px 0;">${type}</h3>
                                 <div>
                                     <canvas id="print-qr-target"></canvas>
-                                </div>
-                                <div style="font-size: 11pt; font-family: monospace; margin-top: 8px;">
-                                    ${lotId}
                                 </div>
                             </div>
                         `;
                         QRCode.toCanvas(document.getElementById('print-qr-target'), encrypted, {
                             errorCorrectionLevel: 'H',
-                            width: 150,
+                            width: 230,
                             margin: 2
                         }, function(err) {
                             if (err) console.error(err);
@@ -2352,18 +2465,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     const printContainer = document.getElementById('print-section');
                     printContainer.innerHTML = `
                         <div class="print-label-view" style="text-align: center;">
-                            <h3 style="font-size: 18pt; font-weight: bold; margin: 0 0 10px 0;">REISSUED: ${displayTitle}</h3>
+                            <h3 style="font-size: 14pt; font-weight: bold; margin: 0 0 10px 0;">REISSUED: ${displayTitle}</h3>
                             <div>
                                 <canvas id="print-qr-target"></canvas>
-                            </div>
-                            <div style="font-size: 11pt; font-family: monospace; margin-top: 8px;">
-                                ${barcodeId}
                             </div>
                         </div>
                     `;
                     QRCode.toCanvas(document.getElementById('print-qr-target'), encrypted, {
                         errorCorrectionLevel: 'H',
-                        width: 150,
+                        width: 230,
                         margin: 2
                     }, function(err) {
                         if (err) console.error(err);

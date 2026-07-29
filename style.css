@@ -821,7 +821,7 @@ tr:hover td {
         font-size: 12pt;
     }
     
-    header, main, .tabs, .btn, .card-title, .form-group, .alert, .scan-trigger-section, .scan-input-manual {
+    header, main, .tabs, .btn, .card-title, .form-group, .alert, .scan-trigger-section, .scan-input-manual, .connection-banner {
         display: none !important;
     }
     
@@ -844,7 +844,7 @@ tr:hover td {
         align-items: center;
         justify-content: center;
         width: 4in;
-        height: 2.5in;
+        height: 2.8in;
         padding: 0.25in;
         margin: 0.5in auto;
         border: 2px dashed #000;

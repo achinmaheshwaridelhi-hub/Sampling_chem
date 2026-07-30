@@ -962,3 +962,93 @@ tr:hover td {
         color: black;
     }
 }
+
+/* ==========================================================================
+   MOBILE / APK RESPONSIVE LAYER  (added — keep at end of file)
+   Fixes: page opening zoomed out, sideways scrolling, tables wider than screen
+   ========================================================================== */
+
+/* 1. Nothing may push the page wider than the device */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+img, svg, canvas, video, iframe { max-width: 100%; height: auto; }
+input, select, textarea, button { max-width: 100%; }
+pre, code, td, th { overflow-wrap: anywhere; word-break: break-word; }
+
+/* 2. Tables: never stretch the page, always scroll inside their own box */
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+.table-responsive table { min-width: 640px; }
+
+@media (max-width: 900px) {
+    /* Tighter page padding so cards use the full screen width */
+    main { padding: 1rem 0.75rem; }
+    .card { padding: 1.15rem; border-radius: 0.85rem; margin-bottom: 1.15rem; }
+    .card-title { font-size: 1.15rem; margin-bottom: 1rem; }
+
+    header { padding: 0.75rem 1rem; }
+
+    /* Tabs become a horizontal swipe strip instead of overflowing the page */
+    .tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0.35rem;
+        margin-bottom: 1.15rem;
+        padding-bottom: 0.35rem;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 0.6rem 0.85rem;
+        font-size: 0.85rem;
+    }
+
+    /* All multi-column grids collapse */
+    .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 1rem; }
+    .report-summary-cards { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+
+    /* Barcode / label cards stack full width */
+    .barcode-card-container { flex-direction: column; }
+    .barcode-card { min-width: 0; width: 100%; }
+
+    /* Comfortable, thumb-sized controls; 16px stops iOS/WebView auto-zoom */
+    input, select, textarea { font-size: 16px !important; }
+    .btn, button { min-height: 44px; }
+
+    /* Denser tables so less sideways scrolling is needed */
+    .table-responsive table { min-width: 560px; font-size: 0.82rem; }
+    th { padding: 0.55rem 0.6rem; font-size: 0.68rem; }
+    td { padding: 0.6rem; }
+    .truck-photo-thumb { width: 46px; height: 34px; }
+
+    .login-container { max-width: 100%; }
+    .photo-lightbox img { max-width: 94%; }
+    .photo-lightbox-close { top: 1rem; right: 1rem; }
+}
+
+@media (max-width: 480px) {
+    main { padding: 0.75rem 0.6rem; }
+    .card { padding: 0.9rem; }
+    .report-summary-cards { grid-template-columns: 1fr 1fr; }
+    h1 { font-size: 1.4rem; }
+    .logo-text { font-size: 1.1rem; }
+    .header-user-badge { font-size: 0.75rem; }
+}
+
+/* 3. Rows of buttons/filters wrap instead of overflowing */
+@media (max-width: 900px) {
+    .filter-bar, .form-actions, .card-header, .toolbar, .btn-group,
+    .barcode-card-actions, .settings-section .row {
+        flex-wrap: wrap;
+    }
+}

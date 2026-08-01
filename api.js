@@ -13,8 +13,23 @@
         { username: 'entry', password: '923fe53966c6cd9343e11af776cd4b05be315ea4b200b02e4d5dfb0f929b73bf', role: 'entry', name: 'Entry Gate Operator' },
         { username: 'weighment', password: '612d15f5e3d7f9f473eedcd9325b55d321fa2ba1903b8a87826040510e8b451f', role: 'weighment', name: 'Weighment Operator' },
         { username: 'lab1', password: '68d0a03fbd404489b987e7e17ae517b2b0250bee0e719d0438d7e41129f76609', role: 'lab1', name: 'Lab Tech 1 (Moisture/Fineness)' },
-        { username: 'lab2', password: '77812e70c9c6d7a0b7dbd8233f3cbe213f71ac0eecd1e6184ae5816095dab9a2', role: 'lab2', name: 'Lab Tech 2 (GCV/Ash)' }
+        { username: 'lab2', password: '77812e70c9c6d7a0b7dbd8233f3cbe213f71ac0eecd1e6184ae5816095dab9a2', role: 'lab2', name: 'Lab Tech 2 (GCV/Ash)' },
+        { username: 'moisture', password: '31bb9529338de24088742ffcdc2eadd5b35562e262c4b146a278287fc044210a', role: 'lab1m', name: 'Lab-1A Moisture Testing' },
+        { username: 'fineness', password: '1811fb31c01f83266818b662a87531d72502ed54860fdd625d92b1f4fcb7d340', role: 'lab1f', name: 'Lab-1B Fineness Testing' },
+        { username: 'unloading', password: 'b78cce73fc60f76e045ff6b3d4d0ac17ad360d4fd81617a2c3ec1039feae4313', role: 'unloading', name: 'After Weighment / Unloading Area' }
     ];
+
+    // Automatic acceptance rule: moisture at or above this % rejects the consignment
+    const MOISTURE_REJECT_LIMIT = 14;
+    const LAB1_ROLES = ['lab1', 'lab1m', 'lab1f', 'admin'];
+
+    function sanitizeTruckData(truck) {
+        if (!truck) return null;
+        const val = truck.invoice_no || truck.challan_no || truck['Challan No'] || truck['Challan No.'] || '';
+        truck.invoice_no = val;
+        truck.challan_no = val;
+        return truck;
+    }
 
     // Initial state is COMPLETELY EMPTY. No mock demo data.
     const DEFAULT_DATA = {
@@ -128,36 +143,32 @@
         },
 
         login: async function(username, hashedPassword) {
+            let remoteUser = null;
             if (this.isRemoteMode()) {
                 try {
-                    const response = await fetch(this.getAppsScriptUrl(), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({
-                            action: 'login',
-                            username: username,
-                            hashedPassword: hashedPassword
-                        })
-                    });
+                    const response = await fetch(`${this.getAppsScriptUrl()}?action=login&username=${encodeURIComponent(username)}&hashedPassword=${encodeURIComponent(hashedPassword)}`);
                     const res = await response.json();
-                    if (res.success) {
-                        const sessionUser = { username: res.user.username, role: res.user.role, name: res.user.name };
-                        sessionStorage.setItem('BIOMASS_SESSION', JSON.stringify(sessionUser));
-                        return { success: true, user: sessionUser };
+                    if (res.success && res.user) {
+                        remoteUser = { username: res.user.username, role: res.user.role, name: res.user.name };
                     }
-                    return { success: false, message: res.message || 'Invalid username or password' };
                 } catch (e) {
-                    console.error('Remote login failed:', e);
-                    throw new Error('Connection failed: ' + e.message);
+                    console.warn('Remote login check failed, falling back to local credentials...', e);
                 }
             }
 
-            const user = DEFAULT_USERS.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === hashedPassword);
-            if (user) {
-                const sessionUser = { username: user.username, role: user.role, name: user.name };
+            if (remoteUser) {
+                sessionStorage.setItem('BIOMASS_SESSION', JSON.stringify(remoteUser));
+                return { success: true, user: remoteUser };
+            }
+
+            // Local fallback for offline mode & pending deployment updates
+            const localUser = DEFAULT_USERS.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === hashedPassword);
+            if (localUser) {
+                const sessionUser = { username: localUser.username, role: localUser.role, name: localUser.name };
                 sessionStorage.setItem('BIOMASS_SESSION', JSON.stringify(sessionUser));
                 return { success: true, user: sessionUser };
             }
+
             return { success: false, message: 'Invalid username or password' };
         },
 
@@ -201,11 +212,14 @@
             }
             const groupCode = getDailyGroupCode(truckData.company_name, entryDate);
 
+            const chVal = truckData.invoice_no || truckData.challan_no || '';
             const newTruck = {
                 truck_id: `TRK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                 company_name: truckData.company_name,
                 driver_name: truckData.driver_name,
                 truck_reg_number: truckData.truck_reg_number,
+                invoice_no: chVal,
+                challan_no: chVal,
                 entry_date: entryDate,
                 entry_time: truckData.entry_time || new Date().toTimeString().split(' ')[0].substring(0, 5),
                 photo_url: truckData.photo_url || '',
@@ -215,7 +229,8 @@
                 sample1_barcode_id: generateOpaqueId('S1'),
                 composite_barcode_id: '',
                 created_by: user.username,
-                daily_group_code: groupCode
+                daily_group_code: groupCode,
+                acceptance_status: 'PENDING'
             };
 
             if (newTruck.gross_weight && newTruck.tare_weight) {
@@ -250,34 +265,79 @@
 
         getTrucks: async function() {
             const user = this.getCurrentUser();
-            if (!user || (user.role !== 'admin' && user.role !== 'lab2' && user.role !== 'weighment' && user.role !== 'entry')) {
-                throw new Error('Unauthorized: Admin, Lab 2, Weighment, or Entry access required');
+            if (!user || !['admin', 'lab2', 'weighment', 'entry', 'unloading'].includes(user.role)) {
+                throw new Error('Unauthorized: Admin, Lab 2, Weighment, Entry or Unloading access required');
             }
 
             if (this.isRemoteMode()) {
                 try {
-                    const response = await fetch(`${this.getAppsScriptUrl()}?action=getTrucks&role=${user.role}`);
+                    const response = await fetch(`${this.getAppsScriptUrl()}?action=getTrucks&role=${user ? user.role : 'admin'}`);
                     const data = await response.json();
-                    return data.trucks || [];
+                    let list = [];
+                    if (data && data.trucks && Array.isArray(data.trucks)) {
+                        list = data.trucks;
+                    } else if (Array.isArray(data)) {
+                        list = data;
+                    }
+                    if (list.length > 0) {
+                        list.forEach(sanitizeTruckData);
+                        return list;
+                    }
                 } catch (e) {
-                    console.error('Remote getTrucks failed:', e);
-                    throw new Error('Google Sheets sync failed. Please check your Web App URL in settings. Details: ' + e.message);
+                    console.warn('Remote getTrucks failed, falling back to local database:', e);
                 }
             }
 
             const db = getDB();
-            return db.trucks;
+            const lab1 = db.lab1_results || [];
+            const mapped = db.trucks.map(function(t) {
+                const res = lab1.find(function(r) { return r.sample1_barcode_id === t.sample1_barcode_id; });
+                const moisture = res && res.moisture_pct !== '' && res.moisture_pct !== undefined && res.moisture_pct !== null ? Number(res.moisture_pct) : null;
+                const status = moisture === null ? 'PENDING' : (moisture > 14 ? 'REJECTED' : 'ACCEPTED');
+                return {
+                    ...t,
+                    moisture_pct: moisture,
+                    acceptance_status: status
+                };
+            });
+            mapped.forEach(sanitizeTruckData);
+            return mapped;
         },
 
         updateWeighment: async function(truckId, grossWeight, tareWeight) {
             const user = this.getCurrentUser();
-            if (!user || (user.role !== 'admin' && user.role !== 'weighment')) {
-                throw new Error('Unauthorized: Admin or Weighment access required');
+            if (!user || (user.role !== 'admin' && user.role !== 'weighment' && user.role !== 'unloading')) {
+                throw new Error('Unauthorized: Admin, Weighment, or Unloading access required');
             }
 
             grossWeight = Number(grossWeight) || 0;
             tareWeight = Number(tareWeight) || 0;
-            const netWeight = (grossWeight && tareWeight) ? (grossWeight - tareWeight) : 0;
+
+            // --- Anti-Manipulation Lock Checks ---
+            const dbCheck = getDB();
+            const tCheck = dbCheck.trucks.find(t => t.truck_id === truckId);
+
+            if (user.role === 'weighment') {
+                if (tareWeight !== 0) {
+                    throw new Error('Unauthorized: Weighment operators are not permitted to submit final (Tare) weight readings.');
+                }
+                if (tCheck && tCheck.gross_weight !== null && tCheck.gross_weight !== undefined && Number(tCheck.gross_weight) > 0) {
+                    throw new Error(`Security Lock: Gross weight for truck [${truckId}] has already been submitted and locked. No further edits allowed by Weighment Operator.`);
+                }
+            }
+
+            if (user.role === 'unloading') {
+                if (tCheck && tCheck.tare_weight !== null && tCheck.tare_weight !== undefined && Number(tCheck.tare_weight) > 0) {
+                    throw new Error(`Security Lock: Final tare weight for truck [${truckId}] has already been submitted and locked. No further edits allowed by Unloading Operator.`);
+                }
+            }
+
+            let netWeight = (grossWeight && tareWeight) ? (grossWeight - tareWeight) : 0;
+
+            // Automatic rejection rule: a rejected consignment is never credited any net weight
+            if (tCheck && tCheck.acceptance_status === 'REJECTED') {
+                netWeight = 0;
+            }
 
             if (this.isRemoteMode()) {
                 try {
@@ -352,7 +412,7 @@
                 return { success: false, message: 'Invalid barcode scanned.' };
             }
 
-            if (role === 'lab1') {
+            if (role === 'lab1' || role === 'lab1m' || role === 'lab1f') {
                 return {
                     success: true,
                     sample1_barcode_id: truck.sample1_barcode_id,
@@ -382,17 +442,24 @@
 
         submitSample1Result: async function(barcodeId, moisture, fineness) {
             const user = this.getCurrentUser();
-            if (!user || (user.role !== 'lab1' && user.role !== 'admin')) {
-                throw new Error('Unauthorized: Lab 1 or Admin access required');
+            if (!user || !LAB1_ROLES.includes(user.role)) {
+                throw new Error('Unauthorized: Lab 1 (Moisture / Fineness) or Admin access required');
             }
 
             const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+            // Role scoping: the moisture desk only writes moisture, the fineness desk only writes fineness
+            const canWriteMoisture = (user.role !== 'lab1f');
+            const canWriteFineness = (user.role !== 'lab1m');
+
             const record = {
                 sample1_barcode_id: barcodeId,
-                moisture_pct: Number(moisture),
-                fineness_value: Number(fineness),
+                moisture_pct: (canWriteMoisture && moisture !== '' && moisture !== null && moisture !== undefined) ? Number(moisture) : null,
+                fineness_value: (canWriteFineness && fineness !== '' && fineness !== null && fineness !== undefined) ? Number(fineness) : null,
                 tested_by: user.username,
-                tested_at: timestamp
+                tested_at: timestamp,
+                write_moisture: canWriteMoisture,
+                write_fineness: canWriteFineness
             };
 
             if (this.isRemoteMode()) {
@@ -410,22 +477,110 @@
                     console.error('Remote submitSample1 failed:', e);
                     throw new Error('Google Sheets sync failed: ' + e.message);
                 }
-            } else {
-                const db = getDB();
-                const truckExists = db.trucks.some(t => t.sample1_barcode_id === barcodeId);
-                if (!truckExists) {
-                    return { success: false, message: 'Invalid barcode. Truck entry not found.' };
-                }
-
-                const existingIndex = db.lab1_results.findIndex(r => r.sample1_barcode_id === barcodeId);
-                if (existingIndex > -1) {
-                    db.lab1_results[existingIndex] = record;
-                } else {
-                    db.lab1_results.push(record);
-                }
-                saveDB(db);
+                return { success: true, record: record };
             }
-            return { success: true, record };
+
+            const db = getDB();
+            const truck = db.trucks.find(t => t.sample1_barcode_id === barcodeId);
+            if (!truck) {
+                return { success: false, message: 'Invalid barcode. Truck entry not found.' };
+            }
+
+            const existingIndex = db.lab1_results.findIndex(r => r.sample1_barcode_id === barcodeId);
+            let merged;
+            if (existingIndex > -1) {
+                merged = Object.assign({}, db.lab1_results[existingIndex]);
+            } else {
+                merged = { sample1_barcode_id: barcodeId, moisture_pct: null, fineness_value: null };
+            }
+            if (record.write_moisture && record.moisture_pct !== null) {
+                merged.moisture_pct = record.moisture_pct;
+                merged.moisture_by = user.username;
+                merged.moisture_at = timestamp;
+            }
+            if (record.write_fineness && record.fineness_value !== null) {
+                merged.fineness_value = record.fineness_value;
+                merged.fineness_by = user.username;
+                merged.fineness_at = timestamp;
+            }
+            merged.tested_by = user.username;
+            merged.tested_at = timestamp;
+
+            if (existingIndex > -1) {
+                db.lab1_results[existingIndex] = merged;
+            } else {
+                db.lab1_results.push(merged);
+            }
+
+            // ===== AUTOMATIC ACCEPTANCE / REJECTION =====
+            const status = window.BiomassAPI.evaluateAcceptance(merged.moisture_pct);
+            truck.acceptance_status = status;
+            if (status === 'REJECTED') {
+                truck.net_weight = 0;
+            } else if (truck.gross_weight && truck.tare_weight) {
+                truck.net_weight = truck.gross_weight - truck.tare_weight;
+            }
+
+            saveDB(db);
+            return { success: true, record: merged, acceptance_status: status, moisture_limit: MOISTURE_REJECT_LIMIT };
+        },
+
+        // Shared acceptance rule used by UI and reports
+        evaluateAcceptance: function(moisturePct) {
+            if (moisturePct === null || moisturePct === undefined || moisturePct === '') return 'PENDING';
+            return Number(moisturePct) >= MOISTURE_REJECT_LIMIT ? 'REJECTED' : 'ACCEPTED';
+        },
+
+        getMoistureRejectLimit: function() {
+            return MOISTURE_REJECT_LIMIT;
+        },
+
+        // ================= AFTER WEIGHMENT / UNLOADING AREA =================
+        getUnloadingStatus: async function(barcodeId) {
+            const user = this.getCurrentUser();
+            if (!user || (user.role !== 'unloading' && user.role !== 'admin')) {
+                throw new Error('Unauthorized: Unloading Area or Admin access required');
+            }
+
+            if (this.isRemoteMode()) {
+                try {
+                    const response = await fetch(`${this.getAppsScriptUrl()}?action=getUnloadingStatus&barcodeId=${encodeURIComponent(barcodeId)}&role=${user.role}`);
+                    const res = await response.json();
+                    return sanitizeTruckData(res);
+                } catch (e) {
+                    console.error('Remote getUnloadingStatus failed:', e);
+                    throw new Error('Google Sheets sync failed: ' + e.message);
+                }
+            }
+
+            const db = getDB();
+            const truck = db.trucks.find(t => t.sample1_barcode_id === barcodeId || t.truck_id === barcodeId);
+            if (!truck) {
+                return { success: false, message: 'No truck found for this code.' };
+            }
+            const lab1 = db.lab1_results.find(r => r.sample1_barcode_id === truck.sample1_barcode_id);
+            const moisture = lab1 && lab1.moisture_pct !== null && lab1.moisture_pct !== undefined ? Number(lab1.moisture_pct) : null;
+            const status = this.evaluateAcceptance(moisture);
+
+            const chVal = truck.invoice_no || truck.challan_no || truck['Challan No'] || truck['Challan No.'] || '';
+            return {
+                success: true,
+                truck_id: truck.truck_id,
+                truck_reg_number: truck.truck_reg_number,
+                invoice_no: chVal,
+                challan_no: chVal,
+                company_name: truck.company_name,
+                driver_name: truck.driver_name,
+                daily_group_code: truck.daily_group_code || '',
+                moisture_pct: moisture,
+                fineness_value: lab1 && lab1.fineness_value !== null && lab1.fineness_value !== undefined ? Number(lab1.fineness_value) : null,
+                gross_weight: Number(truck.gross_weight) || 0,
+                tare_weight: Number(truck.tare_weight) || 0,
+                net_weight: status === 'REJECTED' ? 0 : Number(truck.net_weight) || 0,
+                acceptance_status: status,
+                moisture_limit: MOISTURE_REJECT_LIMIT,
+                unloading_allowed: status === 'ACCEPTED'
+            };
         },
 
         getLab1History: async function() {
@@ -456,7 +611,7 @@
         },
 
         // ================= COMPOSITE MIXING (ADMIN) =================
-        createCompositeBatch: async function(companyName, date, parentTruckIds, systemCount, mixedCount) {
+        createCompositeBatch: async function(companyName, date, parentTruckIds, systemCount, mixedCount, groupCode) {
             const user = this.getCurrentUser();
             if (!user || (user.role !== 'admin' && user.role !== 'lab2')) {
                 throw new Error('Unauthorized: Admin or Lab 2 access required');
@@ -466,12 +621,21 @@
                 return { success: false, message: 'No trucks selected for mixing.' };
             }
 
+            // Fall back to a local lookup of the parent trucks' daily group code if the caller didn't supply one
+            let resolvedGroupCode = groupCode || '';
+            if (!resolvedGroupCode) {
+                const db = getDB();
+                const parentTruck = db.trucks.find(t => parentTruckIds.includes(t.truck_id));
+                resolvedGroupCode = parentTruck ? (parentTruck.daily_group_code || '') : '';
+            }
+
             const refId = `CMP-${date.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
             const newBatch = {
                 composite_ref_id: refId,
                 composite_barcode_id: `${refId}-T`, 
                 company_name: companyName,
                 date: date,
+                daily_group_code: resolvedGroupCode,
                 parent_truck_ids: parentTruckIds,
                 gcv_value: null,
                 ash_pct: null,
@@ -523,19 +687,24 @@
             }
             
             const trucks = await this.getTrucks();
-            const todayStr = this.formatLocalYYYYMMDD(new Date());
+            const searchCode = String(groupCode || '').trim().toUpperCase();
             
-            const groupTrucks = trucks.filter(t => {
-                const normalizedDate = this.formatLocalYYYYMMDD(t.entry_date);
-                return t.daily_group_code === groupCode && normalizedDate === todayStr;
-            });
+            const groupTrucks = trucks.filter(t => String(t.daily_group_code || '').trim().toUpperCase() === searchCode);
             
             if (groupTrucks.length === 0) {
-                throw new Error(`No trucks registered today under Group Code: ${groupCode}`);
+                throw new Error(`No trucks found registered under Group Code: "${groupCode}".`);
+            }
+
+            const acceptedTrucks = groupTrucks.filter(t => t.acceptance_status !== 'REJECTED');
+            const rejectedTrucks = groupTrucks.filter(t => t.acceptance_status === 'REJECTED');
+
+            if (acceptedTrucks.length === 0) {
+                throw new Error(`Cannot create composite sample: All ${groupTrucks.length} truck(s) under Group Code [${groupCode}] were REJECTED in Lab 1 moisture testing.`);
             }
             
-            const companyName = groupTrucks[0].company_name;
-            const parentTruckIds = groupTrucks.map(t => t.truck_id);
+            const companyName = acceptedTrucks[0].company_name;
+            const parentTruckIds = acceptedTrucks.map(t => t.truck_id);
+            const todayStr = this.formatLocalYYYYMMDD(new Date());
             
             let batches = [];
             if (this.isRemoteMode()) {
@@ -546,12 +715,28 @@
                 batches = getDB().composite_batches;
             }
             
-            const existing = batches.find(b => b.company_name === companyName && b.date === todayStr);
+            const searchGroup = String(groupCode || '').trim().toUpperCase();
+            const existing = batches.find(b => String(b.daily_group_code || '').trim().toUpperCase() === searchGroup);
             if (existing) {
-                return { success: false, message: `Barcodes already generated for the Mixing Group Code: ${groupCode} today.` };
+                const testLot = (existing.lots && existing.lots.test) || existing.test_lot || existing.composite_barcode_id || `${existing.composite_ref_id}-T`;
+                const refLot = (existing.lots && existing.lots.referee) || existing.referee_lot || `${existing.composite_ref_id}-R`;
+                const vendLot = (existing.lots && existing.lots.vendor) || existing.vendor_lot || `${existing.composite_ref_id}-V`;
+
+                existing.lots = {
+                    test: testLot,
+                    referee: refLot,
+                    vendor: vendLot
+                };
+
+                return { 
+                    success: true, 
+                    already_exists: true, 
+                    batch: existing, 
+                    message: `Composite QR codes have already been generated for Group Code "${groupCode}".` 
+                };
             }
             
-            return await this.createCompositeBatch(companyName, todayStr, parentTruckIds, groupTrucks.length, mixedCount);
+            return await this.createCompositeBatch(companyName, todayStr, parentTruckIds, groupTrucks.length, mixedCount, groupCode);
         },
 
         getCompositeBatches: async function() {
@@ -571,6 +756,52 @@
                 }
             }
             return getDB().composite_batches;
+        },
+
+        getAllDashboardData: async function() {
+            let trucks = [];
+            let lab1 = [];
+            let composites = [];
+
+            try {
+                if (this.isRemoteMode()) {
+                    try {
+                        const res = await fetch(`${this.getAppsScriptUrl()}?action=getDashboardData&role=admin`).then(r => r.json());
+                        if (res && res.trucks && Array.isArray(res.trucks) && res.trucks.length > 0) {
+                            trucks = res.trucks;
+                            lab1 = res.lab1 || [];
+                            composites = res.composites || [];
+                        }
+                    } catch (e1) {}
+
+                    if (!trucks || trucks.length === 0) {
+                        try {
+                            trucks = await this.getTrucks();
+                            const [r1, r2] = await Promise.all([
+                                fetch(`${this.getAppsScriptUrl()}?action=getLab1Results&role=admin`).then(r => r.json()).catch(() => ({})),
+                                fetch(`${this.getAppsScriptUrl()}?action=getComposites&role=admin`).then(r => r.json()).catch(() => ({}))
+                            ]);
+                            lab1 = (r1 && (r1.results || r1.lab1)) || (Array.isArray(r1) ? r1 : []);
+                            composites = (r2 && (r2.batches || r2.composites)) || (Array.isArray(r2) ? r2 : []);
+                        } catch (e2) {}
+                    }
+                }
+                
+                if (!trucks || trucks.length === 0) {
+                    const db = getDB();
+                    trucks = db.trucks || [];
+                    lab1 = lab1.length > 0 ? lab1 : (db.lab1_results || []);
+                    composites = composites.length > 0 ? composites : (db.composite_batches || []);
+                }
+            } catch(err) {
+                console.error('getAllDashboardData error:', err);
+                const db = getDB();
+                trucks = db.trucks || [];
+                lab1 = db.lab1_results || [];
+                composites = db.composite_batches || [];
+            }
+
+            return { trucks: trucks || [], lab1: lab1 || [], composites: composites || [] };
         },
 
         inspectBarcode: async function(barcodeId) {
@@ -629,20 +860,44 @@
                 };
             }
             
-            // 2. Check if it's a Composite barcode
-            const parts = barcodeId.split('-');
-            const baseCode = parts.length >= 3 ? parts[0] + '-' + parts[1] + '-' + parts[2] : barcodeId;
-            const batch = composites.find(c => 
-                c.composite_ref_id === barcodeId ||
-                c.composite_ref_id === baseCode ||
-                c.composite_barcode_id === barcodeId ||
-                c.test_lot === barcodeId ||
-                c.referee_lot === barcodeId ||
-                c.vendor_lot === barcodeId ||
-                (c.lots && (c.lots.test === barcodeId || c.lots.referee === barcodeId || c.lots.vendor === barcodeId))
-            );
+            // 2. Check if it's a Composite barcode (Test Lot, Referee Lot, Vendor Lot, Group Code, or Ref ID)
+            const rawInput = String(barcodeId || '').replace(/MIXING GROUP:/gi, '').replace(/GROUP:/gi, '').trim().toUpperCase();
+            const coreCode = rawInput.replace(/[-_][RVT]$/i, '');
+
+            const batch = composites.find(c => {
+                const cRef = String(c.composite_ref_id || '').trim().toUpperCase();
+                const cBar = String(c.composite_barcode_id || '').trim().toUpperCase();
+                const cTest = String(c.test_lot || (c.lots ? c.lots.test : '') || '').trim().toUpperCase();
+                const cRefLot = String(c.referee_lot || (c.lots ? c.lots.referee : '') || '').trim().toUpperCase();
+                const cVendLot = String(c.vendor_lot || (c.lots ? c.lots.vendor : '') || '').trim().toUpperCase();
+                const cGroup = String(c.daily_group_code || '').trim().toUpperCase();
+
+                // Direct match
+                if (rawInput === cRef || rawInput === cBar || rawInput === cTest || rawInput === cRefLot || rawInput === cVendLot || rawInput === cGroup) return true;
+                if (coreCode === cRef || coreCode === cBar || coreCode === cTest || coreCode === cRefLot || coreCode === cVendLot || coreCode === cGroup) return true;
+
+                // Substring & Core code match
+                if (cRef && (rawInput.includes(cRef) || cRef.includes(coreCode) || coreCode.includes(cRef))) return true;
+                if (cBar && (rawInput.includes(cBar) || cBar.includes(coreCode) || coreCode.includes(cBar))) return true;
+                if (cGroup && (rawInput.includes(cGroup) || coreCode.includes(cGroup))) return true;
+
+                return false;
+            });
             
             if (batch) {
+                const baseRef = batch.composite_ref_id || batch.daily_group_code || 'CMP-BATCH';
+                if (!batch.test_lot) batch.test_lot = (batch.lots ? batch.lots.test : '') || batch.composite_barcode_id || `${baseRef}-T`;
+                if (!batch.referee_lot) batch.referee_lot = (batch.lots ? batch.lots.referee : '') || `${baseRef}-R`;
+                if (!batch.vendor_lot) batch.vendor_lot = (batch.lots ? batch.lots.vendor : '') || `${baseRef}-V`;
+                
+                if (!batch.lots) {
+                    batch.lots = {
+                        test: batch.test_lot,
+                        referee: batch.referee_lot,
+                        vendor: batch.vendor_lot
+                    };
+                }
+
                 let pIds = [];
                 if (Array.isArray(batch.parent_truck_ids)) {
                     pIds = batch.parent_truck_ids;
@@ -760,24 +1015,82 @@
                     console.error('Remote submitComposite failed:', e);
                     throw new Error('Google Sheets sync failed: ' + e.message);
                 }
-            } else {
-                const db = getDB();
-                const batch = db.composite_batches.find(b => 
-                    b.composite_barcode_id === compositeBarcodeId || 
-                    b.lots.test === compositeBarcodeId
-                );
-
-                if (!batch) {
-                    return { success: false, message: 'Composite batch barcode not found.' };
-                }
-
-                batch.gcv_value = Number(gcv);
-                batch.ash_pct = Number(ash);
-                batch.tested_by = user.username;
-                batch.tested_at = timestamp;
-
-                saveDB(db);
             }
+
+            // Always sync into local DB cache so reports load immediately
+            try {
+                const db = getDB();
+                const cleanTarget = String(compositeBarcodeId || '').trim().toUpperCase();
+                const batch = db.composite_batches.find(b => {
+                    const bRef = String(b.composite_ref_id || '').trim().toUpperCase();
+                    const bBar = String(b.composite_barcode_id || '').trim().toUpperCase();
+                    const bTest = String(b.test_lot || (b.lots ? b.lots.test : '') || '').trim().toUpperCase();
+                    return cleanTarget === bRef || cleanTarget === bBar || cleanTarget === bTest || (bBar && cleanTarget.includes(bBar));
+                });
+
+                if (batch) {
+                    batch.gcv_value = Number(gcv);
+                    batch.ash_pct = Number(ash);
+                    batch.tested_by = user.username;
+                    batch.tested_at = timestamp;
+                    saveDB(db);
+                }
+            } catch(dbErr) {
+                console.warn('Local DB sync warning:', dbErr);
+            }
+
+            return { success: true };
+        },
+
+        updateRefereeChallenge: async function(compositeRefId, payload) {
+            const user = this.getCurrentUser();
+            if (!user || user.role !== 'admin') {
+                throw new Error('Unauthorized: Admin access required');
+            }
+
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+            if (this.isRemoteMode()) {
+                try {
+                    await fetch(this.getAppsScriptUrl(), {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'updateRefereeChallenge',
+                            compositeRefId,
+                            vendorGcv: payload.vendorGcv,
+                            refereeGcv: payload.refereeGcv,
+                            refereeStatus: payload.refereeStatus,
+                            updatedBy: user.username
+                        })
+                    });
+                } catch (e) {
+                    console.error('Remote updateRefereeChallenge failed:', e);
+                    throw new Error('Google Sheets sync failed: ' + e.message);
+                }
+            }
+
+            // Sync into local DB cache
+            try {
+                const db = getDB();
+                const cleanTarget = String(compositeRefId || '').trim().toUpperCase();
+                const batch = db.composite_batches.find(b => {
+                    const bRef = String(b.composite_ref_id || '').trim().toUpperCase();
+                    const bBar = String(b.composite_barcode_id || '').trim().toUpperCase();
+                    const bGroup = String(b.daily_group_code || '').trim().toUpperCase();
+                    return cleanTarget === bRef || cleanTarget === bBar || cleanTarget === bGroup;
+                });
+
+                if (batch) {
+                    if (payload.vendorGcv !== undefined) batch.vendor_gcv = payload.vendorGcv !== '' ? Number(payload.vendorGcv) : null;
+                    if (payload.refereeGcv !== undefined) batch.referee_gcv = payload.refereeGcv !== '' ? Number(payload.refereeGcv) : null;
+                    if (payload.refereeStatus !== undefined) batch.referee_status = payload.refereeStatus;
+                    batch.referee_updated_at = timestamp;
+                    saveDB(db);
+                }
+            } catch(e) {}
+
             return { success: true };
         },
 
@@ -831,25 +1144,57 @@
                 t.entry_date === date
             );
 
+            const self = this;
             const reportRows = filteredTrucks.map(truck => {
                 const lab1Res = db.lab1_results.find(r => r.sample1_barcode_id === truck.sample1_barcode_id);
-                const composite = db.composite_batches.find(c => 
-                    c.composite_barcode_id === truck.composite_barcode_id
-                );
+                const composite = db.composite_batches.find(c => {
+                    if (truck.composite_barcode_id && c.composite_barcode_id === truck.composite_barcode_id) return true;
+                    const g1 = String(c.daily_group_code || '').trim().toUpperCase();
+                    const g2 = String(truck.daily_group_code || '').trim().toUpperCase();
+                    if (g1 && g2 && g1 === g2) return true;
+                    if (c.parent_truck_ids) {
+                        let parentIds = [];
+                        try {
+                            parentIds = typeof c.parent_truck_ids === 'string' ? JSON.parse(c.parent_truck_ids) : c.parent_truck_ids;
+                        } catch(e) {}
+                        if (Array.isArray(parentIds) && parentIds.includes(truck.truck_id)) return true;
+                    }
+                    return false;
+                });
+
+                const moistureVal = lab1Res && lab1Res.moisture_pct !== null && lab1Res.moisture_pct !== undefined ? Number(lab1Res.moisture_pct) : null;
+                const acceptance = self.evaluateAcceptance(moistureVal);
+
+                let rejectionReason = '';
+                if (acceptance === 'REJECTED') {
+                    rejectionReason = moistureVal !== null ? `Moisture ${moistureVal}% > 14.0% Max Limit` : 'REJECTED';
+                } else if (acceptance === 'ACCEPTED') {
+                    rejectionReason = 'Passed (Moisture <= 14.0%)';
+                } else {
+                    rejectionReason = 'Pending Moisture Test';
+                }
+
+                const hasGcv = composite && composite.gcv_value !== null && composite.gcv_value !== "" && composite.gcv_value !== undefined;
+                const hasAsh = composite && composite.ash_pct !== null && composite.ash_pct !== "" && composite.ash_pct !== undefined;
 
                 return {
                     truck_id: truck.truck_id,
                     truck_reg_number: truck.truck_reg_number,
+                    invoice_no: chVal,
+                    challan_no: chVal,
+                    acceptance_status: acceptance,
+                    rejection_reason: rejectionReason,
+                    mixing_group_code: truck.daily_group_code || '',
                     driver_name: truck.driver_name,
                     entry_time: truck.entry_time,
                     photo_url: truck.photo_url || '',
                     gross_weight: truck.gross_weight,
                     tare_weight: truck.tare_weight,
-                    net_weight: truck.net_weight,
+                    net_weight: acceptance === 'REJECTED' ? 0 : truck.net_weight,
                     sample1_barcode: truck.sample1_barcode_id,
-                    composite_barcode: composite ? composite.composite_barcode_id : null,
-                    gcv_value: composite ? composite.gcv_value : null,
-                    ash_pct: composite ? composite.ash_pct : null,
+                    composite_barcode: acceptance === 'REJECTED' ? null : (composite ? (composite.composite_barcode_id || composite.composite_ref_id) : null),
+                    gcv_value: acceptance === 'REJECTED' ? null : (hasGcv ? Number(composite.gcv_value) : null),
+                    ash_pct: acceptance === 'REJECTED' ? null : (hasAsh ? Number(composite.ash_pct) : null),
                     lab2_tested_at: composite ? composite.tested_at : null,
                     moisture_pct: lab1Res ? lab1Res.moisture_pct : null,
                     fineness_value: lab1Res ? lab1Res.fineness_value : null,
@@ -863,7 +1208,11 @@
             let moistureCount = 0;
             let finenessCount = 0;
 
+            let acceptedCount = 0;
+            let rejectedCount = 0;
             reportRows.forEach(row => {
+                if (row.acceptance_status === 'ACCEPTED') acceptedCount++;
+                if (row.acceptance_status === 'REJECTED') rejectedCount++;
                 totalNetWeight += row.net_weight;
                 if (row.moisture_pct !== null) {
                     sumMoisture += row.moisture_pct;
@@ -895,6 +1244,8 @@
                 rows: reportRows,
                 summary: {
                     truck_count: reportRows.length,
+                    accepted_count: acceptedCount,
+                    rejected_count: rejectedCount,
                     total_net_weight: totalNetWeight,
                     avg_moisture: moistureCount > 0 ? Number((sumMoisture / moistureCount).toFixed(2)) : null,
                     avg_fineness: finenessCount > 0 ? Number((sumFineness / finenessCount).toFixed(2)) : null,

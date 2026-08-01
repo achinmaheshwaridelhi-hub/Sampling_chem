@@ -2,12 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Biomass Procurement - Secure Blind Testing System</title>
+    <!-- Global Error Handler to capture and show console errors on-screen -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            alert("JS Error: " + message + "\nSource: " + source + "\nLine: " + lineno + ":" + colno);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            alert("Unhandled Promise Rejection: " + event.reason);
+        });
+    </script>
     <!-- Premium Stylesheet -->
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for Executive Management Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+
+    <!-- Global Loading Overlay -->
+    <div id="global-loader" class="global-loader" style="display: none;">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <h3 id="loader-message" style="font-size: 1.15rem; font-weight: 600; color: #f8fafc; margin-bottom: 0.25rem;">Loading Terminal Data...</h3>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">Syncing with secure database</p>
+        </div>
+    </div>
 
     <!-- Connection Mode Status Banner -->
     <div id="connection-mode-banner" class="connection-banner offline">OFFLINE LOCALSTORAGE MODE</div>
@@ -59,7 +80,10 @@
                 <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
                     <strong>Pilot Logins (Username & Password):</strong><br>
                     • Admin: <code>admin</code> (Full privileges)<br>
-                    • Lab 1: <code>lab1</code> (Moisture & Fineness)<br>
+                    • Weighment: <code>weighment</code> (Weight entries)<br>
+                    • Moisture Desk: <code>moisture</code> (Moisture check)<br>
+                    • Fineness Desk: <code>fineness</code> (Fineness check)<br>
+                    • Unloading Bay: <code>unloading</code> (Clearance / Tare Weight entry)<br>
                     • Lab 2: <code>lab2</code> (GCV & Ash)
                 </div>
             </div>
@@ -68,7 +92,11 @@
         <!-- SCREEN: ADMIN DASHBOARD -->
         <section id="screen-admin" class="screen">
             <div class="tabs">
-                <button class="tab-btn active" data-tab="admin-register">
+                <button class="tab-btn active" data-tab="admin-dashboard" id="tab-btn-dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                    Executive Dashboard
+                </button>
+                <button class="tab-btn" data-tab="admin-register">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     Truck Registration
                 </button>
@@ -88,6 +116,10 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     Barcode Inspector
                 </button>
+                <button class="tab-btn" data-tab="admin-referee" id="tab-btn-referee">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 9l9-6 9 6M3 9v6a6 6 0 0 0 6 6M21 9v6a6 6 0 0 1-6 6M3 9l9 6 9-6"/></svg>
+                    Referee Challenge
+                </button>
                 <button class="tab-btn" data-tab="admin-activity" id="tab-btn-activity">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                     Activity Log
@@ -98,8 +130,306 @@
                 </button>
             </div>
 
+            <!-- TAB 0: EXECUTIVE DASHBOARD -->
+            <div id="tab-admin-dashboard" class="tab-content active">
+                
+                <!-- Executive Header & Control Center -->
+                <div class="card executive-header-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 14px; box-shadow: 0 12px 35px -10px rgba(0,0,0,0.5); backdrop-filter: blur(16px); padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.2rem; margin-bottom: 1.2rem;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+                                <h2 style="font-size: 1.6rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin: 0; display: flex; align-items: center; gap: 0.6rem;">
+                                    <span>📊 Executive Biomass Procurement & Quality Control</span>
+                                </h2>
+                                <span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em;">
+                                    <span style="width: 7px; height: 7px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10b981;"></span>
+                                    LIVE METRICS STREAM
+                                </span>
+                            </div>
+                            <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">
+                                High-level management analytics for biomass intake, net tonnage (MT), supplier compliance, and calorific output (GCV).
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-theme-toggle" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; border-radius: 8px; padding: 0.5rem 0.9rem;" title="Toggle Light/Dark Theme">
+                                🌙 Toggle Theme
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-refresh" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; font-weight: 700; border-radius: 8px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+                                🔄 Refresh Live Data
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-export-csv" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; border-radius: 8px; padding: 0.5rem 0.9rem;">
+                                📥 Export CSV
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-export-pdf" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; font-weight: 700; border-radius: 8px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);">
+                                📄 Print / PDF Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Controls Bar -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; background: rgba(0, 0, 0, 0.35); padding: 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+                        <div>
+                            <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.06em; display: block; margin-bottom: 0.3rem;">📅 Date Range Preset</label>
+                            <select id="exec-filter-period" class="form-control" style="font-size: 0.85rem; padding: 0.45rem 0.65rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                                <option value="all" selected>All Time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="last7">Last 7 Days</option>
+                                <option value="this_month">This Month</option>
+                                <option value="this_year">This Year</option>
+                                <option value="custom">Custom Date Range</option>
+                            </select>
+                        </div>
+
+                        <div id="exec-custom-date-container" style="display: none;">
+                            <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.06em; display: block; margin-bottom: 0.3rem;">🗓️ Custom Range</label>
+                            <div style="display: flex; gap: 4px;">
+                                <input type="date" id="exec-filter-start-date" class="form-control" style="font-size: 0.75rem; padding: 0.35rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                                <input type="date" id="exec-filter-end-date" class="form-control" style="font-size: 0.75rem; padding: 0.35rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.06em; display: block; margin-bottom: 0.3rem;">🏢 Supplier / Company</label>
+                            <select id="exec-filter-company" class="form-control" style="font-size: 0.85rem; padding: 0.45rem 0.65rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                                <option value="ALL">All Suppliers</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.06em; display: block; margin-bottom: 0.3rem;">⚖️ Acceptance Status</label>
+                            <select id="exec-filter-status" class="form-control" style="font-size: 0.85rem; padding: 0.45rem 0.65rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                                <option value="ALL">All Statuses</option>
+                                <option value="ACCEPTED">Accepted Only</option>
+                                <option value="REJECTED">Rejected Only</option>
+                                <option value="PENDING">Pending Only</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.06em; display: block; margin-bottom: 0.3rem;">🔍 Consignment Search</label>
+                            <input type="text" id="exec-filter-search" placeholder="Search Truck / Invoice..." class="form-control" style="font-size: 0.85rem; padding: 0.45rem 0.65rem; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.15); color: #f8fafc; border-radius: 6px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 1: Executive KPI Cards Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+                    
+                    <div class="card exec-kpi-card" style="margin-bottom: 0; background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-top: 4px solid #10b981; border-radius: 12px; padding: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); backdrop-filter: blur(12px);">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Total Biomass Procured</span>
+                            <span style="font-size: 1.1rem;">🌱</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #10b981; margin: 0.4rem 0; letter-spacing: -0.02em;" id="kpi-net-weight-mt">0.00 MT</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;" id="kpi-net-weight-sub">Accepted consignments only</div>
+                    </div>
+
+                    <div class="card exec-kpi-card" style="margin-bottom: 0; background: linear-gradient(145deg, rgba(59, 130, 246, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(59, 130, 246, 0.25); border-top: 4px solid #3b82f6; border-radius: 12px; padding: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); backdrop-filter: blur(12px);">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Total Trucks Arrived</span>
+                            <span style="font-size: 1.1rem;">🚛</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #60a5fa; margin: 0.4rem 0; letter-spacing: -0.02em;" id="kpi-total-trucks">0</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;" id="kpi-trucks-breakdown">0 Accepted | 0 Rejected</div>
+                    </div>
+
+                    <div class="card exec-kpi-card" style="margin-bottom: 0; background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-top: 4px solid #10b981; border-radius: 12px; padding: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); backdrop-filter: blur(12px);">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Compliance Rate</span>
+                            <span style="font-size: 1.1rem;">✅</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #34d399; margin: 0.4rem 0; letter-spacing: -0.02em;" id="kpi-acceptance-rate">0%</div>
+                        <div style="font-size: 0.75rem; color: #f87171;" id="kpi-rejection-rate">Rejection Rate: 0%</div>
+                    </div>
+
+                    <div class="card exec-kpi-card" style="margin-bottom: 0; background: linear-gradient(145deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(245, 158, 11, 0.25); border-top: 4px solid #f59e0b; border-radius: 12px; padding: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); backdrop-filter: blur(12px);">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Average Moisture</span>
+                            <span style="font-size: 1.1rem;">💧</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #fbbf24; margin: 0.4rem 0; letter-spacing: -0.02em;" id="kpi-avg-moisture">0%</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;">Max Limit: 14.0%</div>
+                    </div>
+
+                    <div class="card exec-kpi-card" style="margin-bottom: 0; background: linear-gradient(145deg, rgba(168, 85, 247, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(168, 85, 247, 0.25); border-top: 4px solid #a855f7; border-radius: 12px; padding: 1.25rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); backdrop-filter: blur(12px);">
+                        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Average GCV</span>
+                            <span style="font-size: 1.1rem;">🔥</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #c084fc; margin: 0.4rem 0; letter-spacing: -0.02em;" id="kpi-avg-gcv">0 kcal/kg</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8;">Composite Calorific Output</div>
+                    </div>
+
+                </div>
+
+                <!-- Section 2: Live Operational Pipeline Visualizer Card -->
+                <div class="card" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 class="card-title" style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>🚚 Live Operational Supply Pipeline</span>
+                        </h3>
+                        <span style="font-size: 0.75rem; color: #94a3b8;">Real-time Stage Progress Tracker</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; text-align: center;">
+                        <div style="background: rgba(59, 130, 246, 0.08); padding: 1rem; border-radius: 10px; border: 1px solid rgba(59, 130, 246, 0.25);">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em;">1. Gate Intake</div>
+                            <div style="font-size: 1.6rem; font-weight: 800; color: #60a5fa; margin-top: 0.35rem;" id="pipe-gate-count">0</div>
+                        </div>
+                        <div style="background: rgba(245, 158, 11, 0.08); padding: 1rem; border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.25);">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em;">2. Moisture Lab</div>
+                            <div style="font-size: 1.6rem; font-weight: 800; color: #fbbf24; margin-top: 0.35rem;" id="pipe-lab1-count">0</div>
+                        </div>
+                        <div style="background: rgba(139, 92, 246, 0.08); padding: 1rem; border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.25);">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em;">3. Weighment & Unload</div>
+                            <div style="font-size: 1.6rem; font-weight: 800; color: #a78bfa; margin-top: 0.35rem;" id="pipe-weigh-count">0</div>
+                        </div>
+                        <div style="background: rgba(6, 182, 212, 0.08); padding: 1rem; border-radius: 10px; border: 1px solid rgba(6, 182, 212, 0.25);">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em;">4. Composite GCV Lab</div>
+                            <div style="font-size: 1.6rem; font-weight: 800; color: #22d3ee; margin-top: 0.35rem;" id="pipe-lab2-count">0</div>
+                        </div>
+                        <div style="background: rgba(16, 185, 129, 0.08); padding: 1rem; border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.25);">
+                            <div style="font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.05em;">5. Fully Completed</div>
+                            <div style="font-size: 1.6rem; font-weight: 800; color: #34d399; margin-top: 0.35rem;" id="pipe-completed-count">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Time Series & Analytical Charts Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+                    
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">📈 Procured Biomass Tonnage (MT) & Consignment Trend</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-tonnage-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">📊 Acceptance vs Rejection Ratio Over Time</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-acceptance-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">🔥 Average GCV Calorific Trend (kcal/kg)</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-gcv-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">💧 Average Moisture % vs 14.0% Limit</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-moisture-trend"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Section 4: Supplier Performance & Correlation Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+                    
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">🏢 Top Suppliers by Biomass Tonnage (MT)</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-supplier-tonnage"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card exec-chart-card" style="margin-bottom: 0; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                            <h3 class="card-title" style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #f8fafc;">⚡ Moisture % vs GCV (kcal/kg) Correlation</h3>
+                        </div>
+                        <div style="position: relative; height: 270px;">
+                            <canvas id="chart-moisture-gcv-scatter"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Section 5: Company-Wise Detailed Analysis Table -->
+                <div class="card" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <h3 class="card-title" style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #f8fafc;">🏢 Supplier / Company-Wise Intelligence Breakdown</h3>
+                            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.25rem;">Detailed performance metrics and acceptance breakdown by biomass supplier.</p>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" style="border-collapse: separate; border-spacing: 0;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.03);">
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Supplier Name</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Total Trucks</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Accepted</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Rejected</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Acceptance %</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Rejection %</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Avg Moisture %</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Avg GCV (kcal/kg)</th>
+                                    <th style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; padding: 0.75rem 1rem;">Total Net Weight (MT)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exec-supplier-table-body">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading supplier metrics...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section 6: Detailed Consignments Data Table -->
+                <div class="card" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; backdrop-filter: blur(16px); padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <h3 class="card-title" style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #f8fafc;">📋 Executive Consignment Audit Log</h3>
+                            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.25rem;">Filterable log of all arriving biomass trucks and quality metrics.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.82rem; color: #10b981; font-weight: 600; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); padding: 4px 10px; border-radius: 20px;" id="exec-table-count-info">Showing 0 consignments</span>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table" style="border-collapse: separate; border-spacing: 0;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.03);">
+                                    <th>Date</th>
+                                    <th>Challan / Invoice</th>
+                                    <th>Supplier</th>
+                                    <th>Truck No / ID</th>
+                                    <th>Driver Name</th>
+                                    <th>Gross (kg)</th>
+                                    <th>Tare (kg)</th>
+                                    <th>Net (MT)</th>
+                                    <th>Moisture %</th>
+                                    <th>GCV (kcal/kg)</th>
+                                    <th>Acceptance Status</th>
+                                    <th>Pipeline Stage</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exec-consignments-table-body">
+                                <tr><td colspan="12" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading consignment records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
             <!-- TAB 1: TRUCK REGISTRATION -->
-            <div id="tab-admin-register" class="tab-content active">
+            <div id="tab-admin-register" class="tab-content">
                 <div class="grid-2">
                     <div class="card" style="margin-bottom: 0;">
                         <h3 class="card-title">Register Incoming Truck</h3>
@@ -116,6 +446,10 @@
                             <div class="form-group">
                                 <label for="reg-vehicle">Truck Registration Number</label>
                                 <input type="text" id="reg-vehicle" placeholder="e.g. HR-55A-1234" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="reg-invoice">Invoice No. / Challan No.</label>
+                                <input type="text" id="reg-invoice" placeholder="e.g. INV-2026-00123" required>
                             </div>
 
                             <div class="form-group">
@@ -172,7 +506,6 @@
                                 <div class="barcode-card" style="width: 100%;">
                                     <h4>Sample-1 (Moisture / Fineness)</h4>
                                     <div style="font-size: 1.1rem; font-weight: bold; background: #e0f2fe; color: #0369a1; padding: 0.35rem 1rem; border-radius: 4px; margin: 0.5rem 0;" id="s1-group-code-display">MIXING GROUP: --</div>
-                                    <div id="s1-qr-expiry" style="font-size: 0.85rem; margin-bottom: 0.5rem; text-align: center;"></div>
                                     <canvas id="qr-canvas-s1"></canvas>
                                     <div class="barcode-card-actions">
                                         <span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Label Options</span>
@@ -198,6 +531,7 @@
                                     <th>Reg Date/Time</th>
                                     <th>Supplier Name</th>
                                     <th>Vehicle Number</th>
+                                    <th>Invoice / Challan No.</th>
                                     <th>Driver Name</th>
                                     <th>Mixing Group</th>
                                     <th>Actions</th>
@@ -227,6 +561,7 @@
                                     <th>Reg Date</th>
                                     <th>Supplier Name</th>
                                     <th>Vehicle Number</th>
+                                    <th>Invoice / Challan No.</th>
                                     <th>Gross (kg)</th>
                                     <th>Tare (kg)</th>
                                     <th>Net (kg)</th>
@@ -330,7 +665,8 @@
                             <!-- Test Lot -->
                             <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--secondary);">
                                 <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">1. Lab Testing Lot</h4>
-                                <div id="comp-test-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <div class="mixing-group-line" id="comp-test-group-code">MIXING GROUP: --</div>
+                                <div class="composite-code-line" id="comp-test-code">COMPOSITE CODE: --</div>
                                 <canvas id="qr-canvas-comp-test"></canvas>
                                  <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
                                      <span style="color: #9ca3af;">Testing Lot Sticker</span>
@@ -343,7 +679,8 @@
                             <!-- Referee Lot -->
                             <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--accent);">
                                 <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">2. Referee/Retain Lot (Keep in Storage)</h4>
-                                <div id="comp-ref-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <div class="mixing-group-line" id="comp-ref-group-code">MIXING GROUP: --</div>
+                                <div class="composite-code-line" id="comp-ref-code">COMPOSITE CODE: --</div>
                                 <canvas id="qr-canvas-comp-ref"></canvas>
                                  <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
                                      <span style="color: #9ca3af;">Referee Storage Sticker</span>
@@ -356,7 +693,8 @@
                             <!-- Vendor Lot -->
                             <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 1rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid #a855f7;">
                                 <h4 style="color: #4b5563; font-size: 0.8rem; text-transform: uppercase;">3. Vendor Lot (Send to Supplier)</h4>
-                                <div id="comp-vend-qr-expiry" style="font-size: 0.8rem; margin: 0.25rem 0; text-align: center;"></div>
+                                <div class="mixing-group-line" id="comp-vend-group-code">MIXING GROUP: --</div>
+                                <div class="composite-code-line" id="comp-vend-code">COMPOSITE CODE: --</div>
                                 <canvas id="qr-canvas-comp-vend"></canvas>
                                  <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 0.5rem; border-top: 1px solid #f3f4f6; padding-top: 0.5rem;">
                                      <span style="color: #9ca3af;">Vendor Lot Sticker</span>
@@ -424,6 +762,10 @@
                             <div class="report-summary-val" id="summary-net-weight">0 kg</div>
                         </div>
                         <div class="report-summary-card">
+                            <div class="report-summary-lbl">Approved / Rejected</div>
+                            <div class="report-summary-val" style="font-size: 1.15rem; line-height: 1.3; margin-top: 0.5rem;" id="summary-accept-reject">0 / 0</div>
+                        </div>
+                        <div class="report-summary-card">
                             <div class="report-summary-lbl">Avg Moisture</div>
                             <div class="report-summary-val" id="summary-avg-moisture">0%</div>
                         </div>
@@ -445,15 +787,13 @@
                                 <tr>
                                     <th>Truck ID</th>
                                     <th>Vehicle Reg</th>
-                                    <th>Driver Name</th>
-                                    <th>Weighment (Net)</th>
-                                    <th>Sample-1 (Blind)</th>
+                                    <th>Invoice / Challan No.</th>
                                     <th>Moisture %</th>
                                     <th>Fineness %</th>
-                                    <th>Composite Code</th>
+                                    <th>Acceptance</th>
+                                    <th>Mixing Group</th>
                                     <th>GCV (kcal/kg)</th>
                                     <th>Ash %</th>
-                                    <th>Verify</th>
                                 </tr>
                             </thead>
                             <tbody id="report-rows-body">
@@ -487,6 +827,9 @@
                                     <div id="inspector-qr-reader" style="width: 100%; height: 100%;"></div>
                                     <div class="scanner-laser"></div>
                                 </div>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-inspector-torch" style="width: 100%; margin-top: 0.5rem;">
+                                    Torch On / Off
+                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-inspector-stop-scan" style="width: 100%; margin-top: 0.5rem;">
                                     Turn Camera Off
                                 </button>
@@ -514,6 +857,52 @@
                         <h3 class="card-title">Barcode Information</h3>
                         <div id="inspector-result-content">
                             <!-- Dynamically Rendered -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: REFEREE CHALLENGE -->
+            <div id="tab-admin-referee" class="tab-content">
+                <div class="card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <h3 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; color: var(--primary);">
+                                ⚖️ Referee Challenge Management
+                            </h3>
+                            <p style="font-size: 0.85rem; margin-top: 0.25rem; color: var(--text-muted);">Manage vendor GCV challenges and enter third-party Referee sample test results for composite lots.</p>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="btn-refresh-referee" style="display: flex; align-items: center; gap: 0.4rem;">
+                            🔄 Refresh Data
+                        </button>
+                    </div>
+
+                    <div class="card-body">
+                        <div style="margin-bottom: 1.25rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="referee-search-input" placeholder="🔍 Search by Supplier, Group Code, or Date..." style="max-width: 380px; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color);">
+                            <span id="referee-records-count" style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;"></span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Group Code</th>
+                                        <th>Supplier Name</th>
+                                        <th>Sample Date</th>
+                                        <th>NTPC GCV (kcal/kg)</th>
+                                        <th>Vendor GCV (kcal/kg)</th>
+                                        <th>Challenge Action</th>
+                                        <th>Referee GCV (kcal/kg)</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="referee-challenge-table-body">
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading composite lot history...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -574,7 +963,7 @@
                     <h3 class="card-title">System Settings</h3>
                     <div class="form-group">
                         <label for="settings-api-url">Google Apps Script Web App Deployment URL</label>
-                        <input type="url" id="settings-api-url" placeholder="https://script.google.com/macros/s/.../exec">
+                        <input type="url" id="settings-api-url" value="https://script.google.com/macros/s/AKfycbwr__Y-G_hnHOTT-NFwTq6naGDsk8x-52E4jcF6JqEqSovLqhnmdZxxilJgNy3a7y6e/exec" placeholder="https://script.google.com/macros/s/.../exec">
                         <p style="font-size: 0.8rem; margin-top: 0.5rem;">Leave empty to operate in simulated LocalStorage Mode. Paste your Apps Script deployment link to sync with Google Sheets.</p>
                     </div>
                     <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
@@ -587,12 +976,104 @@
             </div>
         </section>
 
+
+        <!-- SCREEN: AFTER WEIGHMENT / UNLOADING AREA -->
+        <section id="screen-unloading" class="screen">
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h3 class="card-title" style="margin-bottom: 0.25rem;">After Weighment — Unloading Clearance &amp; Final Tare Log</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">View all incoming consignments, check lab moisture clearance, and record final truck tare weights after unloading.</p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 400px;">
+                        <input type="text" id="search-unloading-input" placeholder="🔍 Search truck no, reg no, company..." style="width: 100%;">
+                    </div>
+                </div>
+
+                <div class="scan-trigger-section" id="unloading-scan-trigger" style="margin-top: 1rem; margin-bottom: 0.5rem; padding: 0.75rem 1rem;">
+                    <div class="scan-icon" style="font-size: 1.25rem;">📷</div>
+                    <div>
+                        <h4 style="margin-bottom: 0.15rem; font-size: 0.95rem;">Scan QR / Barcode (Optional)</h4>
+                        <p style="font-size: 0.75rem;">Quick scan to filter or jump directly to a truck's unloading record</p>
+                    </div>
+                </div>
+
+                <div id="unloading-scanner-container" style="display: none; position: relative; margin-bottom: 1rem;">
+                    <div class="camera-wrapper" style="aspect-ratio: 16/9; max-height: 200px;">
+                        <div id="unloading-qr-reader" style="width: 100%; height: 100%;"></div>
+                        <div class="scanner-laser"></div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-unloading-torch" style="width: 100%; margin-top: 0.5rem;">
+                        Torch On / Off
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-unloading-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                        Turn Camera Off
+                    </button>
+                </div>
+            </div>
+
+            <!-- Unloading Log Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Truck ID</th>
+                                <th>Date &amp; Time</th>
+                                <th>Company</th>
+                                <th>Registration No.</th>
+                                <th>Challan No.</th>
+                                <th>Gross Wt (kg)</th>
+                                <th>Moisture &amp; Status</th>
+                                <th>Tare Wt (kg)</th>
+                                <th>Net Wt (kg)</th>
+                                <th style="text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-unloading-body">
+                            <tr><td colspan="10" style="text-align: center;">Loading unloading entries...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal / Form Card for Unloading Weight Entry -->
+            <div class="card" id="unloading-result-card" style="display: none; margin-top: 1.5rem; border: 2px solid var(--primary);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="card-title" id="unloading-modal-title">Record Final Weight (After Unloading)</h3>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('unloading-result-card').style.display='none'">✕ Close</button>
+                </div>
+                <div id="unloading-status-banner" class="alert" style="display: none; margin-bottom: 1rem;"></div>
+
+                <form id="unloading-weight-form">
+                    <input type="hidden" id="unloading-weight-truck-id">
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label for="unloading-weight-gross">Gross Weight (kg)</label>
+                            <input type="number" id="unloading-weight-gross" readonly style="background: rgba(255,255,255,0.05); color: var(--text-muted);">
+                        </div>
+                        <div class="form-group">
+                            <label for="unloading-weight-tare">Tare Weight (kg)</label>
+                            <input type="number" id="unloading-weight-tare" placeholder="Enter empty truck weight..." required>
+                        </div>
+                        <div class="form-group">
+                            <label>Calculated Net Weight</label>
+                            <div id="unloading-weight-net" style="font-size: 1.5rem; font-weight: 700; color: var(--primary); padding-top: 0.5rem;">0 kg</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                        Submit Final Weight &amp; Close Entry
+                    </button>
+                </form>
+            </div>
+        </section>
+
         <!-- SCREEN: LAB 1 (MOISTURE & FINENESS) -->
         <section id="screen-lab1" class="screen">
             <div class="grid-2">
                 <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                     <div class="card" style="margin-bottom: 0;">
-                        <h3 class="card-title">Lab Station 1 — Moisture & Fineness</h3>
+                        <h3 class="card-title" id="lab1-station-title">Lab Station 1 — Moisture &amp; Fineness</h3>
                         
                         <!-- Camera Scan Trigger -->
                         <div class="scan-trigger-section" id="lab1-scan-trigger">
@@ -609,7 +1090,10 @@
                                 <div id="lab1-qr-reader" style="width: 100%; height: 100%;"></div>
                                 <div class="scanner-laser"></div>
                             </div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab1-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab1-torch" style="width: 100%; margin-top: 0.5rem;">
+                                    Torch On / Off
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-lab1-stop-scan" style="width: 100%; margin-top: 0.5rem;">
                                 Turn Camera Off
                             </button>
                         </div>
@@ -642,11 +1126,11 @@
                         <form id="lab1-entry-form">
                             <input type="hidden" id="lab1-barcode-id">
                             <div class="grid-2">
-                                <div class="form-group">
+                                <div class="form-group" id="lab1-moisture-group">
                                     <label for="lab1-moisture">Moisture Content (%)</label>
                                     <input type="number" step="0.01" id="lab1-moisture" placeholder="0.00" required min="0" max="100">
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" id="lab1-fineness-group">
                                     <label for="lab1-fineness">Fineness Value (%)</label>
                                     <input type="number" step="0.01" id="lab1-fineness" placeholder="0.00" required min="0" max="100">
                                 </div>
@@ -667,8 +1151,8 @@
                             <thead>
                                 <tr>
                                     <th>Submission Ref</th>
-                                    <th>Moisture (%)</th>
-                                    <th>Fineness (%)</th>
+                                    <th id="lab1-th-moisture">Moisture (%)</th>
+                                    <th id="lab1-th-fineness">Fineness (%)</th>
                                     <th>Submission Time</th>
                                 </tr>
                             </thead>
@@ -703,7 +1187,10 @@
                                 <div id="lab2-qr-reader" style="width: 100%; height: 100%;"></div>
                                 <div class="scanner-laser"></div>
                             </div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab2-stop-scan" style="width: 100%; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-lab2-torch" style="width: 100%; margin-top: 0.5rem;">
+                                    Torch On / Off
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-lab2-stop-scan" style="width: 100%; margin-top: 0.5rem;">
                                 Turn Camera Off
                             </button>
                         </div>
@@ -744,7 +1231,8 @@
                                 <!-- Test Lot -->
                                 <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--secondary);">
                                     <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">1. Lab Testing Lot (-T)</h4>
-                                    <div id="lab2-test-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <div class="mixing-group-line" id="lab2-test-group-code">MIXING GROUP: --</div>
+                                    <div class="composite-code-line" id="lab2-test-code">COMPOSITE CODE: --</div>
                                     <canvas id="qr-canvas-lab2-test"></canvas>
                                     <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
                                         <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-test">Print</button>
@@ -754,7 +1242,8 @@
                                 <!-- Referee Lot -->
                                 <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid var(--accent);">
                                     <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">2. Referee/Retain Lot (-R)</h4>
-                                    <div id="lab2-ref-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <div class="mixing-group-line" id="lab2-ref-group-code">MIXING GROUP: --</div>
+                                    <div class="composite-code-line" id="lab2-ref-code">COMPOSITE CODE: --</div>
                                     <canvas id="qr-canvas-lab2-ref"></canvas>
                                     <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
                                         <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-ref">Print</button>
@@ -764,7 +1253,8 @@
                                 <!-- Vendor Lot -->
                                 <div class="lab-meta-display" style="background: white; color: black; border-color: #d1d5db; padding: 0.75rem; flex-direction: column; align-items: center; gap: 0.5rem; border-left: 5px solid #a855f7;">
                                     <h4 style="color: #4b5563; font-size: 0.75rem; text-transform: uppercase;">3. Vendor Lot (-V)</h4>
-                                    <div id="lab2-vend-qr-expiry" style="font-size: 0.75rem; margin: 0.25rem 0; text-align: center;"></div>
+                                    <div class="mixing-group-line" id="lab2-vend-group-code">MIXING GROUP: --</div>
+                                    <div class="composite-code-line" id="lab2-vend-code">COMPOSITE CODE: --</div>
                                     <canvas id="qr-canvas-lab2-vend"></canvas>
                                     <div style="display: flex; gap: 0.5rem; width: 100%; justify-content: center; margin-top: 0.25rem;">
                                         <button type="button" class="btn btn-secondary btn-sm" id="btn-print-lab2-vend">Print</button>
@@ -840,16 +1330,16 @@
 
     <!-- External Library CDNs (Preload) -->
     <!-- QRCode library for QR code rendering -->
-    <script src="lib/qrcode.min.js"></script>
+    <script src="lib/qrcode.min.js" onerror="alert('CRITICAL: lib/qrcode.min.js failed to load!')"></script>
     
     <!-- Html5-Qrcode library for camera barcode scanning -->
-    <script src="lib/html5-qrcode.min.js"></script>
+    <script src="lib/html5-qrcode.min.js" onerror="alert('CRITICAL: lib/html5-qrcode.min.js failed to load!')"></script>
 
     <!-- PDF.js library for offline PDF barcode scanning in pilot tests -->
-    <script src="lib/pdf.min.js"></script>
+    <script src="lib/pdf.min.js" onerror="alert('CRITICAL: lib/pdf.min.js failed to load!')"></script>
 
     <!-- App JavaScript files -->
-    <script src="api.js"></script>
-    <script src="app.js"></script>
+    <script src="api.js?v=20260801" onerror="alert('CRITICAL: api.js failed to load!')"></script>
+    <script src="app.js?v=20260801" onerror="alert('CRITICAL: app.js failed to load!')"></script>
 </body>
 </html>

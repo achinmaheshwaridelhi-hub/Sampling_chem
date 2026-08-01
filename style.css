@@ -626,6 +626,11 @@ tr:hover td {
     color: var(--secondary);
 }
 
+.badge-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
 /* Multi-select Composite mixing row styles */
 .truck-select-row {
     cursor: pointer;
@@ -1051,4 +1056,41 @@ pre, code, td, th { overflow-wrap: anywhere; word-break: break-word; }
     .barcode-card-actions, .settings-section .row {
         flex-wrap: wrap;
     }
+}
+
+/* Global Loading Overlay & Glassmorphic Spinner */
+.global-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(11, 19, 36, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+}
+.loader-content {
+    text-align: center;
+    background: #1e293b;
+    padding: 2.25rem 3rem;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.6);
+}
+.spinner {
+    width: 52px;
+    height: 52px;
+    border: 5px solid rgba(16, 185, 129, 0.2);
+    border-top-color: #10b981;
+    border-radius: 50%;
+    animation: loader-spin 0.75s linear infinite;
+    margin: 0 auto 1.25rem auto;
+}
+@keyframes loader-spin {
+    to { transform: rotate(360deg); }
 }

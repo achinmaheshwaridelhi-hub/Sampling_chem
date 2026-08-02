@@ -1094,3 +1094,118 @@ pre, code, td, th { overflow-wrap: anywhere; word-break: break-word; }
 @keyframes loader-spin {
     to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   MOBILE LAYER v2  +  DASHBOARD POLISH   (keep at very end of file)
+   ========================================================================== */
+
+/* --- A. Tables: scroll sideways, never break words character-by-character --- */
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+.table-responsive::-webkit-scrollbar { height: 6px; }
+.table-responsive::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.45);
+    border-radius: 99px;
+}
+.table-responsive table {
+    width: max-content;
+    min-width: 100%;
+}
+.table-responsive th,
+.table-responsive td {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+/* only genuinely long free text may wrap */
+.table-responsive td.wrap,
+.table-responsive th.wrap { white-space: normal; max-width: 16rem; }
+
+/* --- B. Sticky first column + header so context is never lost while scrolling --- */
+@media (max-width: 900px) {
+    .table-responsive thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #131c2b;
+    }
+    .table-responsive table { font-size: 0.8rem; }
+    .table-responsive th { padding: 0.5rem 0.65rem; font-size: 0.66rem; }
+    .table-responsive td { padding: 0.55rem 0.65rem; }
+    .table-responsive .btn,
+    .table-responsive button { min-height: 34px; padding: 0.35rem 0.6rem; font-size: 0.75rem; }
+    /* hint that the table scrolls */
+    .table-responsive { position: relative; }
+}
+
+/* --- C. Long values inside inputs / cards must not blow up the layout --- */
+input, select, textarea { min-width: 0; }
+.form-group { min-width: 0; }
+
+/* --- D. Executive dashboard polish --- */
+.exec-kpi-card {
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.9), rgba(17, 24, 39, 0.9));
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.15rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.exec-kpi-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--primary), var(--secondary));
+    opacity: 0.9;
+}
+.exec-kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-color-hover);
+    box-shadow: var(--shadow-primary);
+}
+.exec-chart-card,
+.report-summary-card {
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    background: rgba(17, 24, 39, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.exec-chart-card { padding: 1.15rem; }
+.exec-chart-card canvas { max-width: 100% !important; }
+
+.card {
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    letter-spacing: -0.01em;
+}
+
+/* --- E. Small-screen dashboard layout --- */
+@media (max-width: 900px) {
+    .exec-kpi-grid, .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.75rem; }
+    .exec-chart-card { padding: 0.9rem; }
+    .exec-chart-card canvas { height: 240px !important; }
+    .card:hover { transform: none; }
+    .card-title { font-size: 1.05rem; }
+    header .header-user-badge { display: none; }
+}
+@media (max-width: 480px) {
+    .exec-kpi-grid, .kpi-grid { grid-template-columns: 1fr !important; }
+    .report-summary-cards { grid-template-columns: 1fr 1fr; }
+    .btn { font-size: 0.85rem; }
+}
+
+/* --- F. Safe areas for notch / gesture bar inside the APK --- */
+body { padding-bottom: env(safe-area-inset-bottom); }
+header { padding-top: calc(0.75rem + env(safe-area-inset-top)); }

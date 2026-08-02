@@ -2,16 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#090d16">
     <title>Biomass Procurement - Secure Blind Testing System</title>
     <!-- Global Error Handler to capture and show console errors on-screen -->
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
-            alert("JS Error: " + message + "\nSource: " + source + "\nLine: " + lineno + ":" + colno);
+            console.error("JS Error: " + message + " @ " + source + ":" + lineno + ":" + colno);
             return false;
         };
         window.addEventListener('unhandledrejection', function(event) {
-            alert("Unhandled Promise Rejection: " + event.reason);
+            console.error("Unhandled Promise Rejection: " + event.reason);
         });
     </script>
     <!-- Premium Stylesheet -->
@@ -1341,5 +1342,26 @@
     <!-- App JavaScript files -->
     <script src="api.js?v=20260801" onerror="alert('CRITICAL: api.js failed to load!')"></script>
     <script src="app.js?v=20260801" onerror="alert('CRITICAL: app.js failed to load!')"></script>
+
+    <!-- MOBILE/APK FIX: make every table horizontally scrollable inside its card -->
+    <script>
+        (function() {
+            function wrapTables() {
+                document.querySelectorAll('table').forEach(function(t) {
+                    if (!t.closest('.table-responsive') && !t.closest('.print-report-view')) {
+                        var w = document.createElement('div');
+                        w.className = 'table-responsive';
+                        t.parentNode.insertBefore(w, t);
+                        w.appendChild(t);
+                    }
+                });
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                wrapTables();
+                new MutationObserver(function() { wrapTables(); })
+                    .observe(document.body, { childList: true, subtree: true });
+            });
+        })();
+    </script>
 </body>
 </html>

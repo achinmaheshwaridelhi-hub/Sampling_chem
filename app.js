@@ -1060,14 +1060,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('login-form');
     const loginAlert = document.getElementById('login-alert');
 
+    let __loaderWatchdog = null;
     window.showGlobalLoader = function(msg) {
         const loader = document.getElementById('global-loader');
         const text = document.getElementById('loader-message');
         if (text) text.textContent = msg || 'Loading Terminal Data...';
         if (loader) loader.style.display = 'flex';
+        // MOBILE/APK FIX: never let the spinner trap the app forever
+        if (__loaderWatchdog) clearTimeout(__loaderWatchdog);
+        __loaderWatchdog = setTimeout(function() {
+            const l = document.getElementById('global-loader');
+            if (l && l.style.display !== 'none') {
+                l.style.display = 'none';
+                console.warn('Loader auto-dismissed after timeout.');
+            }
+        }, 30000);
     };
 
     window.hideGlobalLoader = function() {
+        if (__loaderWatchdog) { clearTimeout(__loaderWatchdog); __loaderWatchdog = null; }
         const loader = document.getElementById('global-loader');
         if (loader) loader.style.display = 'none';
     };
@@ -1178,6 +1189,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 weighTab.classList.add('active');
                 document.getElementById('tab-admin-weighment').classList.add('active');
             }
+            // MOBILE/APK FIX: tab clicks are blocked for this role, so load the data here
+            renderWeighmentLog();
         }
 
         if (role === 'admin' || role === 'entry') {

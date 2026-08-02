@@ -4,6 +4,24 @@
  * Integrates directly with the Google Sheets REST API.
  */
 (function() {
+    // --- MOBILE/APK FIX: every network call now times out instead of hanging forever ---
+    const NETWORK_TIMEOUT_MS = 25000;
+    const _nativeFetch = window.fetch.bind(window);
+    function fetch(input, init) {
+        init = init || {};
+        if (init.signal) return _nativeFetch(input, init);
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), NETWORK_TIMEOUT_MS);
+        return _nativeFetch(input, Object.assign({}, init, { signal: ctrl.signal }))
+            .catch(err => {
+                if (err && err.name === 'AbortError') {
+                    throw new Error('Network timeout - server did not respond. Check your internet connection and try again.');
+                }
+                throw err;
+            })
+            .finally(() => clearTimeout(timer));
+    }
+
     const STORAGE_KEY = 'BIOMASS_DB_STATE';
     const CONFIG_KEY = 'BIOMASS_CONFIG';
 

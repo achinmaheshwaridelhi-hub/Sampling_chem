@@ -1209,3 +1209,55 @@ input, select, textarea { min-width: 0; }
 /* --- F. Safe areas for notch / gesture bar inside the APK --- */
 body { padding-bottom: env(safe-area-inset-bottom); }
 header { padding-top: calc(0.75rem + env(safe-area-inset-top)); }
+
+/* ===== Fineness weight-based entry (Lab Station 1) ===== */
+.fineness-step {
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+    border-radius: 10px;
+    padding: 0.75rem;
+    margin-top: 0.6rem;
+}
+.fineness-step > label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.fineness-step input[type="number"] {
+    width: 100%;
+}
+.fineness-photo-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+.fineness-photo-preview {
+    display: block;
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    margin-top: 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+}
+.fineness-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-size: 0.85rem;
+}
+.fineness-result strong {
+    font-size: 1.35rem;
+    color: var(--primary);
+}

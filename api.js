@@ -335,27 +335,36 @@
             const dbCheck = getDB();
             const tCheck = dbCheck.trucks.find(t => t.truck_id === truckId);
 
+            const existingGross = tCheck && tCheck.gross_weight ? Number(tCheck.gross_weight) : 0;
+            const existingTare = tCheck && tCheck.tare_weight ? Number(tCheck.tare_weight) : 0;
+
+            // Weighment desk records BOTH gross and final (tare) weight, but each value
+            // locks permanently once submitted — a saved reading can never be re-edited.
             if (user.role === 'weighment') {
-                if (tareWeight !== 0) {
-                    throw new Error('Unauthorized: Weighment operators are not permitted to submit final (Tare) weight readings.');
+                if (existingGross > 0 && grossWeight !== existingGross) {
+                    if (grossWeight > 0 && grossWeight !== existingGross) {
+                        throw new Error(`Security Lock: Gross weight for truck [${truckId}] is already submitted and locked.`);
+                    }
+                    grossWeight = existingGross;
                 }
-                if (tCheck && tCheck.gross_weight !== null && tCheck.gross_weight !== undefined && Number(tCheck.gross_weight) > 0) {
-                    throw new Error(`Security Lock: Gross weight for truck [${truckId}] has already been submitted and locked. No further edits allowed by Weighment Operator.`);
+                if (existingTare > 0 && tareWeight !== existingTare) {
+                    if (tareWeight > 0 && tareWeight !== existingTare) {
+                        throw new Error(`Security Lock: Final weight for truck [${truckId}] is already submitted and locked.`);
+                    }
+                    tareWeight = existingTare;
                 }
             }
 
             if (user.role === 'unloading') {
-                if (tCheck && tCheck.tare_weight !== null && tCheck.tare_weight !== undefined && Number(tCheck.tare_weight) > 0) {
-                    throw new Error(`Security Lock: Final tare weight for truck [${truckId}] has already been submitted and locked. No further edits allowed by Unloading Operator.`);
+                // Final weight is captured by the weighment desk; unloading is view-only for it
+                if (tareWeight !== existingTare) {
+                    throw new Error('Unauthorized: Final (Tare) weight must be recorded at the weighbridge / weighment login.');
                 }
             }
 
-            let netWeight = (grossWeight && tareWeight) ? (grossWeight - tareWeight) : 0;
 
-            // Automatic rejection rule: a rejected consignment is never credited any net weight
-            if (tCheck && tCheck.acceptance_status === 'REJECTED') {
-                netWeight = 0;
-            }
+            // Net weight calculation is always gross minus tare irrespective of acceptance status
+            let netWeight = (grossWeight && tareWeight) ? (grossWeight - tareWeight) : 0;
 
             if (this.isRemoteMode()) {
                 try {
@@ -458,7 +467,7 @@
             throw new Error('Unauthorized: Invalid role for Sample 1 lookup');
         },
 
-        submitSample1Result: async function(barcodeId, moisture, fineness) {
+        submitSample1Result: async function(barcodeId, moisture, fineness, extra) {
             const user = this.getCurrentUser();
             if (!user || !LAB1_ROLES.includes(user.role)) {
                 throw new Error('Unauthorized: Lab 1 (Moisture / Fineness) or Admin access required');
@@ -479,6 +488,20 @@
                 write_moisture: canWriteMoisture,
                 write_fineness: canWriteFineness
             };
+
+            // Fineness is now derived from an initial / final weighing pair, each backed
+            // by a mandatory scale-reading photo. Carry those through to storage/sync.
+            if (canWriteFineness && extra && typeof extra === 'object') {
+                if (extra.fineness_initial_weight !== undefined && extra.fineness_initial_weight !== '') {
+                    record.fineness_initial_weight = Number(extra.fineness_initial_weight);
+                }
+                if (extra.fineness_final_weight !== undefined && extra.fineness_final_weight !== '') {
+                    record.fineness_final_weight = Number(extra.fineness_final_weight);
+                }
+                if (extra.fineness_initial_photo) record.fineness_initial_photo = extra.fineness_initial_photo;
+                if (extra.fineness_final_photo) record.fineness_final_photo = extra.fineness_final_photo;
+            }
+
 
             if (this.isRemoteMode()) {
                 try {
@@ -520,7 +543,12 @@
                 merged.fineness_value = record.fineness_value;
                 merged.fineness_by = user.username;
                 merged.fineness_at = timestamp;
+                if (record.fineness_initial_weight !== undefined) merged.fineness_initial_weight = record.fineness_initial_weight;
+                if (record.fineness_final_weight !== undefined) merged.fineness_final_weight = record.fineness_final_weight;
+                if (record.fineness_initial_photo) merged.fineness_initial_photo = record.fineness_initial_photo;
+                if (record.fineness_final_photo) merged.fineness_final_photo = record.fineness_final_photo;
             }
+
             merged.tested_by = user.username;
             merged.tested_at = timestamp;
 
@@ -533,9 +561,7 @@
             // ===== AUTOMATIC ACCEPTANCE / REJECTION =====
             const status = window.BiomassAPI.evaluateAcceptance(merged.moisture_pct);
             truck.acceptance_status = status;
-            if (status === 'REJECTED') {
-                truck.net_weight = 0;
-            } else if (truck.gross_weight && truck.tare_weight) {
+            if (truck.gross_weight && truck.tare_weight) {
                 truck.net_weight = truck.gross_weight - truck.tare_weight;
             }
 
@@ -594,7 +620,7 @@
                 fineness_value: lab1 && lab1.fineness_value !== null && lab1.fineness_value !== undefined ? Number(lab1.fineness_value) : null,
                 gross_weight: Number(truck.gross_weight) || 0,
                 tare_weight: Number(truck.tare_weight) || 0,
-                net_weight: status === 'REJECTED' ? 0 : Number(truck.net_weight) || 0,
+                net_weight: Number(truck.net_weight) || ((truck.gross_weight && truck.tare_weight) ? Number(truck.gross_weight) - Number(truck.tare_weight) : 0),
                 acceptance_status: status,
                 moisture_limit: MOISTURE_REJECT_LIMIT,
                 unloading_allowed: status === 'ACCEPTED'

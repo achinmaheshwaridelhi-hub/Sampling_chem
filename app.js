@@ -264,8 +264,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const png = canvas.toDataURL('image/png');
             const downloadLink = document.createElement('a');
             downloadLink.href = png;
-            const safeName = (filename && filename.trim()) ? filename.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') : ('qr_' + Math.random().toString(36).substr(2,9));
-            downloadLink.download = `${safeName}.png`;
+            // Privacy: never expose the sample/QR serial in the saved file name.
+            // Use an opaque random token instead.
+            const randomToken = Math.random().toString(36).substring(2, 10).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+            downloadLink.download = `QR_${randomToken}.png`;
+
             document.body.appendChild(downloadLink);
             downloadLink.click();
             document.body.removeChild(downloadLink);
@@ -1115,6 +1118,7 @@ document.addEventListener('DOMContentLoaded', function() {
             activeCameraStream.getTracks().forEach(track => track.stop());
             activeCameraStream = null;
         }
+        stopFinenessCamera();
         await stopAllSharedScanners();
         const camPanel = document.getElementById('camera-stream-panel');
         if (camPanel) camPanel.style.display = 'none';
@@ -1851,13 +1855,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 const activeUser = window.BiomassAPI.getCurrentUser();
                 const userRole = activeUser ? activeUser.role : '';
                 const hasGross = truck.gross_weight !== null && truck.gross_weight !== undefined && Number(truck.gross_weight) > 0;
+                const hasTare = truck.tare_weight !== null && truck.tare_weight !== undefined && truck.tare_weight !== '' && Number(truck.tare_weight) > 0;
 
+                // Final (tare) weight is now captured at the weighbridge, so the weighment
+                // desk keeps an actionable button until both weights are recorded.
                 let weighActionBtn = '';
-                if (userRole === 'weighment' && hasGross) {
-                    weighActionBtn = `<span style="color:#10b981; font-weight:bold; font-size:0.85rem;">🔒 Gross Weight Saved</span>`;
+                if (truck.acceptance_status === 'REJECTED' && !hasTare) {
+                    weighActionBtn = `<button class="btn btn-danger btn-sm" onclick="window.triggerWeighmentEdit('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">⛔ Rejected — Record Exit Weight</button>`;
+                } else if (!hasGross) {
+                    weighActionBtn = `<button class="btn btn-secondary btn-sm" onclick="window.triggerWeighmentEdit('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">⚖️ Record Gross Weight</button>`;
+                } else if (!hasTare) {
+                    weighActionBtn = `<button class="btn btn-primary btn-sm" onclick="window.triggerWeighmentEdit('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">⚖️ Enter Final Weight</button>`;
+                } else if (userRole === 'weighment') {
+                    weighActionBtn = `<span style="color:#10b981; font-weight:bold; font-size:0.85rem;">🔒 Final Weight Saved</span>`;
                 } else {
-                    weighActionBtn = `<button class="btn btn-secondary btn-sm" onclick="window.triggerWeighmentEdit('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">${hasGross ? 'Update weight' : '⚖️ Record Weight'}</button>`;
+                    weighActionBtn = `<button class="btn btn-secondary btn-sm" onclick="window.triggerWeighmentEdit('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">Update weight</button>`;
                 }
+
 
                 tr.innerHTML = `
                     <td><strong>${truck.truck_id}</strong></td>
@@ -1897,16 +1911,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const filter = searchUnloadingInput ? searchUnloadingInput.value.toLowerCase().trim() : '';
             tbody.innerHTML = '';
 
+            const sessionUser = window.BiomassAPI.getCurrentUser();
+            const sessionRole = sessionUser ? sessionUser.role : '';
+            const isUnloadingDesk = sessionRole === 'unloading';
+
+            // The unloading desk no longer records final weight (weighbridge does it).
+            // It now tracks approved / rejected trucks still pending a final weight.
+            if (isUnloadingDesk) {
+                const actionTh = document.querySelector('#screen-unloading table thead th:last-child');
+                if (actionTh) actionTh.textContent = 'Final Weight Status';
+                const weightCard = document.getElementById('unloading-result-card');
+                if (weightCard) weightCard.style.display = 'none';
+            }
+
             const filtered = trucks.filter(t => {
                 const id = String(t.truck_id || '').toLowerCase();
-                const comp = String(t.company_name || '').toLowerCase();
+                const driver = String(t.driver_name || '').toLowerCase();
                 const reg = String(t.truck_reg_number || '').toLowerCase();
                 const ch = String(t.invoice_no || t.challan_no || '').toLowerCase();
-                return id.includes(filter) || comp.includes(filter) || reg.includes(filter) || ch.includes(filter);
+                return id.includes(filter) || driver.includes(filter) || reg.includes(filter) || ch.includes(filter);
             });
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">No matching truck entries found.</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No matching truck entries found.</td></tr>`;
                 return;
             }
 
@@ -1927,43 +1954,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     statusBadge = `<span class="badge badge-warning" style="background:#f59e0b; color:white; padding:4px 8px; border-radius:4px;">⏳ Awaiting Lab Moisture</span>`;
                 }
 
-                const activeUser = window.BiomassAPI.getCurrentUser();
-                const userRole = activeUser ? activeUser.role : '';
-
-                let actionBtn = '';
-                if (truck.acceptance_status === 'REJECTED') {
-                    actionBtn = `<span style="color:#ef4444; font-weight:bold; font-size:0.85rem;">⛔ UNLOADING BLOCKED</span>`;
-                } else if (truck.acceptance_status === 'ACCEPTED') {
-                    const hasTare = truck.tare_weight !== null && truck.tare_weight !== undefined && truck.tare_weight !== '' && Number(truck.tare_weight) > 0;
-                    if (hasTare) {
-                        if (userRole === 'unloading') {
-                            actionBtn = `<span style="color:#10b981; font-weight:bold; font-size:0.85rem;">🔒 Final Weight Saved</span>`;
-                        } else {
-                            actionBtn = `<button class="btn btn-secondary btn-sm" onclick="window.openUnloadingModal('${truck.truck_id}', ${truck.gross_weight}, ${truck.tare_weight})">✓ Update Weight</button>`;
-                        }
-                    } else {
-                        actionBtn = `<button class="btn btn-primary btn-sm" onclick="window.openUnloadingModal('${truck.truck_id}', ${truck.gross_weight})">⚖️ Enter Final Weight</button>`;
-                    }
-                } else {
-                    actionBtn = `<span style="color:#f59e0b; font-size:0.85rem;">⏳ Wait for Moisture Result</span>`;
-                }
-
                 tr.innerHTML = `
                     <td><strong>${truck.truck_id}</strong></td>
                     <td>${dateStr} ${timeStr}</td>
-                    <td>${truck.company_name}</td>
+                    <td><strong>${truck.driver_name || '-'}</strong></td>
                     <td><span style="font-family: monospace;">${truck.truck_reg_number}</span></td>
                     <td><span style="font-family: monospace;">${chNo}</span></td>
-                    <td>${truck.gross_weight || '-'}</td>
                     <td>${statusBadge}</td>
-                    <td>${truck.tare_weight || '-'}</td>
-                    <td style="color: var(--primary); font-weight: bold;">${truck.net_weight || '-'}</td>
-                    <td style="text-align: center;">${actionBtn}</td>
                 `;
                 tbody.appendChild(tr);
             });
         } catch (e) {
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--danger);">Failed to load unloading log: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger);">Failed to load unloading log: ${e.message}</td></tr>`;
         } finally {
             if (window.hideGlobalLoader) window.hideGlobalLoader();
         }
@@ -2025,11 +2027,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const role = user ? user.role : null;
         
         if (role === 'weighment') {
-            // Lock Tare Weight (final weight) permanently for initial weighment operators
-            tareInput.disabled = true;
-            tareInput.value = '';
-            tareInput.placeholder = 'Locked (Unloading Operator Only)';
+            // Weighment desk now records BOTH gross and final (tare) weight
+            tareInput.disabled = false;
+            tareInput.placeholder = 'Final / empty truck weight e.g. 11500';
         }
+
         
         card.style.display = 'block';
         calculateEditNet();
@@ -2783,7 +2785,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // A hidden required field blocks form submission, so toggle 'required' along with visibility
         moistureInput.required = showMoisture;
-        finenessInput.required = showFineness;
+        // Fineness is now a computed hidden field fed by the weight-based module
+        finenessInput.required = false;
+
 
         // Station title reflects which test this login is responsible for
         const titleEl = document.getElementById('lab1-station-title');
@@ -2802,16 +2806,170 @@ document.addEventListener('DOMContentLoaded', function() {
         if (historyFinenessTh) historyFinenessTh.style.display = showFineness ? '' : 'none';
     }
 
+    // ===================== Fineness: weight-based entry =====================
+
+    // Fineness % = (final weight / initial weight) x 100.
+    // Each weight can only be typed AFTER a mandatory photo of the scale reading.
+    const finenessState = { initialPhoto: null, finalPhoto: null };
+
+    function readImageAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Could not read the captured photo.'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function updateFinenessCalc() {
+        const initial = parseFloat(document.getElementById('lab1-fineness-initial').value);
+        const final = parseFloat(document.getElementById('lab1-fineness-final').value);
+        const display = document.getElementById('lab1-fineness-display');
+        const hidden = document.getElementById('lab1-fineness');
+
+        if (!isNaN(initial) && initial > 0 && !isNaN(final) && final >= 0) {
+            const pct = (final / initial) * 100;
+            hidden.value = pct.toFixed(2);
+            display.textContent = pct.toFixed(2) + ' %';
+        } else {
+            hidden.value = '';
+            display.textContent = '—';
+        }
+    }
+
+    function setFinenessPhoto(which, dataUrl) {
+        finenessState[which === 'initial' ? 'initialPhoto' : 'finalPhoto'] = dataUrl;
+        const status = document.getElementById(`fineness-${which}-photo-status`);
+        const preview = document.getElementById(`fineness-${which}-photo-preview`);
+        const input = document.getElementById(`lab1-fineness-${which}`);
+
+        if (dataUrl) {
+            status.textContent = '✅ Photo Saved';
+            status.className = 'badge badge-success';
+            preview.src = dataUrl;
+            preview.style.display = 'block';
+            input.disabled = false;
+            input.focus();
+        } else {
+            status.textContent = 'Photo Required';
+            status.className = 'badge badge-pending';
+            preview.removeAttribute('src');
+            preview.style.display = 'none';
+            input.disabled = true;
+            input.value = '';
+        }
+        updateFinenessCalc();
+    }
+
+    function resetFinenessModule() {
+        finenessState.initialPhoto = null;
+        finenessState.finalPhoto = null;
+        ['initial', 'final'].forEach(which => {
+            const fileInput = document.getElementById(`fineness-${which}-photo-input`);
+            if (fileInput) fileInput.value = '';
+            setFinenessPhoto(which, null);
+        });
+    }
+
+    function setFinenessModuleEnabled(enabled) {
+        ['initial', 'final'].forEach(which => {
+            const btn = document.getElementById(`btn-fineness-${which}-photo`);
+            if (btn) btn.disabled = !enabled;
+            if (!enabled) {
+                const input = document.getElementById(`lab1-fineness-${which}`);
+                if (input) input.disabled = true;
+            }
+        });
+    }
+
+    let finenessCameraStream = null;
+    let currentFinenessWhich = null;
+
+    function stopFinenessCamera() {
+        if (finenessCameraStream) {
+            finenessCameraStream.getTracks().forEach(track => track.stop());
+            finenessCameraStream = null;
+        }
+        const panel = document.getElementById('fineness-camera-panel');
+        if (panel) panel.style.display = 'none';
+        currentFinenessWhich = null;
+    }
+
+    async function startFinenessCamera(which) {
+        currentFinenessWhich = which;
+        const panel = document.getElementById('fineness-camera-panel');
+        const title = document.getElementById('fineness-camera-title');
+        if (title) {
+            title.textContent = `📷 Live Scale Photo Capture (${which === 'initial' ? 'Initial Weight' : 'Final Weight'})`;
+        }
+        if (panel) panel.style.display = 'block';
+
+        try {
+            if (finenessCameraStream) {
+                finenessCameraStream.getTracks().forEach(track => track.stop());
+            }
+            finenessCameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            const video = document.getElementById('fineness-webcam-feed');
+            if (video) {
+                video.srcObject = finenessCameraStream;
+                video.play();
+            }
+        } catch (err) {
+            alert('Camera access error: ' + err.message + '. Please ensure camera permissions are allowed. Live camera capture is required for scale photo proof.');
+            stopFinenessCamera();
+        }
+    }
+
+    function setupFinenessModule() {
+        ['initial', 'final'].forEach(which => {
+            const btn = document.getElementById(`btn-fineness-${which}-photo`);
+            const numInput = document.getElementById(`lab1-fineness-${which}`);
+            if (!btn || !numInput) return;
+
+            btn.onclick = () => startFinenessCamera(which);
+            numInput.oninput = updateFinenessCalc;
+        });
+
+        const cancelBtn = document.getElementById('btn-cancel-fineness-photo');
+        if (cancelBtn) {
+            cancelBtn.onclick = stopFinenessCamera;
+        }
+
+        const snapBtn = document.getElementById('btn-snap-fineness-photo');
+        if (snapBtn) {
+            snapBtn.onclick = () => {
+                if (!currentFinenessWhich) return;
+                const video = document.getElementById('fineness-webcam-feed');
+                if (!video || !video.videoWidth) {
+                    alert('Camera feed is initializing. Please wait a moment.');
+                    return;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+                setFinenessPhoto(currentFinenessWhich, dataUrl);
+                stopFinenessCamera();
+            };
+        }
+    }
+
     function initLab1Screen() {
         document.getElementById('lab1-entry-card').style.display = 'none';
         document.getElementById('lab1-manual-input').value = '';
         applyLab1RoleView();
+        setupFinenessModule();
+        resetFinenessModule();
         renderLab1History();
         setupLab1CameraScanner();
         setupLab1FileUploadScanner();
     }
 
-    // Pilot file/PDF-upload barcode scanning for Lab 1
     function setupLab1FileUploadScanner() {
         const fileInput = document.getElementById('lab1-file-input');
         fileInput.addEventListener('change', function(e) {
@@ -2893,6 +3051,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 moistureInput.value = hasMoisture ? data.moisture_pct : '';
                 finenessInput.value = hasFineness ? data.fineness_value : '';
 
+                // Fresh weight-entry module for every scanned sample
+                resetFinenessModule();
+                if (hasFineness) {
+                    document.getElementById('lab1-fineness-display').textContent = Number(data.fineness_value).toFixed(2) + ' %';
+                }
+
                 const activeUser = window.BiomassAPI.getCurrentUser();
                 const userRole = activeUser ? activeUser.role : '';
 
@@ -2900,17 +3064,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (userRole === 'lab1m') {
                     // Moisture tester: only locked if moisture is already entered
                     moistureInput.disabled = hasMoisture;
-                    finenessInput.disabled = true;
+                    setFinenessModuleEnabled(false);
                     isLockedForRole = hasMoisture;
                 } else if (userRole === 'lab1f') {
                     // Fineness tester: only locked if fineness is already entered
                     moistureInput.disabled = true;
-                    finenessInput.disabled = hasFineness;
+                    setFinenessModuleEnabled(!hasFineness);
                     isLockedForRole = hasFineness;
                 } else {
                     // Combined Lab1 or Admin
                     moistureInput.disabled = hasMoisture;
-                    finenessInput.disabled = hasFineness;
+                    setFinenessModuleEnabled(!hasFineness);
                     isLockedForRole = hasMoisture && hasFineness;
                 }
 
@@ -2927,9 +3091,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Focus whichever field this login is actually responsible for
                 if (showMoisture) {
                     moistureInput.focus();
-                } else if (showFineness) {
-                    finenessInput.focus();
                 }
+
             } else {
                 alert('Invalid lookup: ' + data.message);
             }
@@ -2945,15 +3108,50 @@ document.addEventListener('DOMContentLoaded', function() {
         const { showMoisture, showFineness } = getLab1FieldVisibility();
         const barcode = document.getElementById('lab1-barcode-id').value;
         const moisture = showMoisture ? document.getElementById('lab1-moisture').value : '';
-        const fineness = showFineness ? document.getElementById('lab1-fineness').value : '';
+
+        const initialWeight = document.getElementById('lab1-fineness-initial').value;
+        const finalWeight = document.getElementById('lab1-fineness-final').value;
+        const finenessBtnEnabled = !document.getElementById('btn-fineness-initial-photo').disabled;
+        const finenessEditable = showFineness && finenessBtnEnabled;
+
+        // Mandatory: scale photo + both weights before fineness can be recorded
+        if (finenessEditable) {
+            if (!finenessState.initialPhoto) {
+                alert('Please capture and save the scale photo for the INITIAL weight first.');
+                return;
+            }
+            if (!initialWeight || Number(initialWeight) <= 0) {
+                alert('Please enter a valid initial weight (i).');
+                return;
+            }
+            if (!finenessState.finalPhoto) {
+                alert('Please capture and save the scale photo for the FINAL weight first.');
+                return;
+            }
+            if (finalWeight === '' || Number(finalWeight) < 0) {
+                alert('Please enter a valid final weight (f).');
+                return;
+            }
+            updateFinenessCalc();
+        }
+
+        const fineness = finenessEditable ? document.getElementById('lab1-fineness').value : '';
+        const extra = finenessEditable ? {
+            fineness_initial_weight: initialWeight,
+            fineness_final_weight: finalWeight,
+            fineness_initial_photo: finenessState.initialPhoto,
+            fineness_final_photo: finenessState.finalPhoto
+        } : null;
 
         try {
-            const res = await window.BiomassAPI.submitSample1Result(barcode, moisture, fineness);
+            const res = await window.BiomassAPI.submitSample1Result(barcode, moisture, fineness, extra);
             if (res.success) {
                 alert('Sample analysis locked and submitted successfully!');
                 document.getElementById('lab1-entry-card').style.display = 'none';
                 document.getElementById('lab1-manual-input').value = '';
+                resetFinenessModule();
                 renderLab1History();
+
             } else {
                 alert('Submission failed: ' + res.message);
             }
@@ -3386,13 +3584,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     let lab1Html = '';
                     if (res.lab1) {
+                        let scalePhotosHtml = '';
+                        const hasInitialPhoto = !!res.lab1.fineness_initial_photo;
+                        const hasFinalPhoto = !!res.lab1.fineness_final_photo;
+                        
+                        if (hasInitialPhoto || hasFinalPhoto) {
+                            scalePhotosHtml = `<div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px dashed rgba(6, 95, 70, 0.3); display: flex; gap: 0.5rem; flex-wrap: wrap;">`;
+                            scalePhotosHtml += `<span style="width: 100%; font-size: 0.8rem; font-weight: bold; color: #065f46;">📸 Fineness Scale Reading Photo Audit Proofs:</span>`;
+                            if (hasInitialPhoto) {
+                                const initVal = (res.lab1.fineness_initial_weight !== undefined && res.lab1.fineness_initial_weight !== null && res.lab1.fineness_initial_weight !== '') ? res.lab1.fineness_initial_weight + ' kg' : 'Captured';
+                                scalePhotosHtml += `<button type="button" class="btn btn-secondary btn-sm" onclick="window.viewPhoto('${res.lab1.fineness_initial_photo}', 'Initial Weight Scale Photo (i = ${initVal})')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #065f46; font-weight: bold;">📷 View Initial Scale Photo (i: ${initVal})</button>`;
+                            }
+                            if (hasFinalPhoto) {
+                                const finalVal = (res.lab1.fineness_final_weight !== undefined && res.lab1.fineness_final_weight !== null && res.lab1.fineness_final_weight !== '') ? res.lab1.fineness_final_weight + ' kg' : 'Captured';
+                                scalePhotosHtml += `<button type="button" class="btn btn-secondary btn-sm" onclick="window.viewPhoto('${res.lab1.fineness_final_photo}', 'Final Weight Scale Photo (f = ${finalVal})')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #065f46; font-weight: bold;">📷 View Final Scale Photo (f: ${finalVal})</button>`;
+                            }
+                            scalePhotosHtml += `</div>`;
+                        }
+
+                        const initW = (res.lab1.fineness_initial_weight !== undefined && res.lab1.fineness_initial_weight !== null && res.lab1.fineness_initial_weight !== '') ? res.lab1.fineness_initial_weight : '-';
+                        const finalW = (res.lab1.fineness_final_weight !== undefined && res.lab1.fineness_final_weight !== null && res.lab1.fineness_final_weight !== '') ? res.lab1.fineness_final_weight : '-';
+                        const finenessDetails = (initW !== '-' || finalW !== '-') ? ` (i: ${initW}, f: ${finalW})` : '';
+
                         lab1Html = `
                             <div class="lab-meta-display" style="background: #ecfdf5; border-color: #a7f3d0; margin-top: 1rem; color: #065f46;">
-                                <strong>Lab Station 1 Results:</strong><br>
-                                • Moisture: ${res.lab1.moisture_pct}%<br>
-                                • Fineness: ${res.lab1.fineness_value}%<br>
-                                • Tested By: ${res.lab1.tested_by}<br>
-                                • Tested At: ${res.lab1.tested_at}
+                                <strong>Lab Station 1 Results &amp; Photo Audit:</strong><br>
+                                • Moisture: ${res.lab1.moisture_pct !== null && res.lab1.moisture_pct !== undefined ? res.lab1.moisture_pct + '%' : 'Pending'}<br>
+                                • Fineness: ${res.lab1.fineness_value !== null && res.lab1.fineness_value !== undefined ? res.lab1.fineness_value + '%' + finenessDetails : 'Pending'}<br>
+                                • Tested By: ${res.lab1.tested_by || '-'}<br>
+                                • Tested At: ${res.lab1.tested_at || '-'}
+                                ${scalePhotosHtml}
                             </div>
                         `;
                     } else {
@@ -3554,11 +3775,161 @@ document.addEventListener('DOMContentLoaded', function() {
             exportPdfBtn.onclick = () => window.print();
         }
 
+        const exportFilteredBtn = document.getElementById('exec-btn-export-filtered');
+        if (exportFilteredBtn) {
+            exportFilteredBtn.onclick = () => generateFilteredDashboardReport();
+        }
+
+
         // Initial render
         await renderExecutiveDashboardData();
     }
 
+    // Snapshot of the dashboard's currently filtered data, used by the filtered report export
+    const execFilterSnapshot = { records: [], meta: null };
+
+    // Builds an official report (same layout as Compiled Reports) for whatever
+    // filter combination is currently applied on the dashboard.
+    function generateFilteredDashboardReport() {
+        const rows = execFilterSnapshot.records || [];
+        const meta = execFilterSnapshot.meta || {};
+        const printContainer = document.getElementById('print-section');
+        if (!printContainer) return;
+
+        if (rows.length === 0) {
+            alert('No records match the current filters, so there is nothing to report.');
+            return;
+        }
+
+        const num = (v) => (v !== null && v !== undefined && v !== '' && !isNaN(v)) ? Number(v) : null;
+        const avg = (arr) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+        const accepted = rows.filter(r => r.acceptance_status === 'ACCEPTED');
+        const rejected = rows.filter(r => r.acceptance_status === 'REJECTED');
+        const totalNetKg = accepted.reduce((s, r) => s + (Number(r.net_weight_kg) || 0), 0);
+        const avgMoisture = avg(rows.map(r => num(r.moisture_pct)).filter(v => v !== null));
+        const avgFineness = avg(rows.map(r => num(r.fineness_value)).filter(v => v !== null));
+        const avgGcv = avg(rows.map(r => num(r.gcv_value)).filter(v => v !== null));
+        const avgAsh = avg(rows.map(r => num(r.ash_pct)).filter(v => v !== null));
+
+        let rowHtml = '';
+        rows.forEach(r => {
+            const acceptanceLabel = r.acceptance_status === 'REJECTED'
+                ? `<span style="color:red; font-weight:bold;">⛔ REJECTED (${r.rejection_reason || 'Moisture >14%'})</span>`
+                : r.acceptance_status === 'ACCEPTED' ? '<span style="color:green; font-weight:bold;">✅ ACCEPTED</span>' : 'Pending';
+            const gcvPrint = r.acceptance_status === 'REJECTED' ? 'N/A (REJECTED)' : (num(r.gcv_value) !== null ? num(r.gcv_value) : 'Pending');
+            const ashPrint = r.acceptance_status === 'REJECTED' ? 'N/A (REJECTED)' : (num(r.ash_pct) !== null ? num(r.ash_pct) + '%' : 'Pending');
+
+            rowHtml += `
+                <tr>
+                    <td><strong>${r.truck_id || '-'}</strong></td>
+                    <td>${r.company_name || '-'}</td>
+                    <td>${r.truck_reg_number || '-'}</td>
+                    <td>${r.invoice_no || r.challan_no || '-'}</td>
+                    <td>${num(r.moisture_pct) !== null ? num(r.moisture_pct) + '%' : 'Pending'}</td>
+                    <td>${num(r.fineness_value) !== null ? num(r.fineness_value) + '%' : 'Pending'}</td>
+                    <td>${acceptanceLabel}</td>
+                    <td>${((Number(r.net_weight_kg) || 0) / 1000).toFixed(3)}</td>
+                    <td>${gcvPrint}</td>
+                    <td>${ashPrint}</td>
+                </tr>
+            `;
+        });
+
+        printContainer.innerHTML = `
+            <div class="print-report-view">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid black; padding-bottom: 0.75rem;">
+                    <img src="ntpc-logo.png" alt="NTPC Logo" style="height: 50px;">
+                    <div style="text-align: left;">
+                        <h1 style="font-size: 20pt; font-weight: bold; margin: 0; color: #000; font-family: var(--font-sans);">NTPC LIMITED</h1>
+                        <h3 style="font-size: 11pt; font-weight: bold; letter-spacing: 0.05em; margin: 0; color: #444; font-family: var(--font-sans);">CHEMISTRY DEPARTMENT</h3>
+                    </div>
+                </div>
+
+                <h2 style="font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 1rem;">BIOMASS QUALITY REPORT — FILTERED SELECTION</h2>
+
+                <div class="report-meta-info">
+                    <div><strong>Supplier(s):</strong> ${meta.company || 'All Suppliers'}</div>
+                    <div><strong>Period:</strong> ${meta.period || 'All Time'} (${meta.range || '-'})</div>
+                    <div><strong>Status Filter:</strong> ${meta.status || 'All Statuses'}</div>
+                    <div><strong>Search Filter:</strong> ${meta.search || '—'}</div>
+                    <div><strong>Generated At:</strong> ${new Date().toLocaleString()}</div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Truck ID</th>
+                            <th>Supplier</th>
+                            <th>Vehicle Reg</th>
+                            <th>Invoice / Challan No.</th>
+                            <th>Moisture %</th>
+                            <th>Fineness %</th>
+                            <th>Acceptance</th>
+                            <th>Net Wt (MT)</th>
+                            <th>GCV (kcal)</th>
+                            <th>Ash %</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowHtml}</tbody>
+                </table>
+
+                <div class="print-summary-grid">
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Total Trucks</div>
+                        <div class="print-summary-val">${rows.length}</div>
+                    </div>
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Total Net Weight</div>
+                        <div class="print-summary-val">${(totalNetKg / 1000).toFixed(2)} MT</div>
+                    </div>
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Approved / Rejected</div>
+                        <div class="print-summary-val" style="font-size: 11pt; padding-top: 4px;">${accepted.length} / ${rejected.length}</div>
+                    </div>
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Avg Moisture</div>
+                        <div class="print-summary-val">${avgMoisture !== null ? avgMoisture.toFixed(2) + '%' : 'Pending'}</div>
+                    </div>
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Avg Fineness</div>
+                        <div class="print-summary-val">${avgFineness !== null ? avgFineness.toFixed(2) + '%' : 'Pending'}</div>
+                    </div>
+                    <div class="print-summary-card">
+                        <div class="print-summary-lbl">Avg GCV / Ash</div>
+                        <div class="print-summary-val" style="font-size: 11pt; padding-top: 4px;">
+                            ${avgGcv !== null ? Math.round(avgGcv) + ' kcal' : 'Pending'} /
+                            ${avgAsh !== null ? avgAsh.toFixed(2) + '%' : 'Pending'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="print-signature-section">
+                    <div class="print-signature-box">
+                        <strong>Prepared By</strong><br>
+                        <span style="font-size: 9pt; color: #444;">Name: ___________________</span><br>
+                        <span style="font-size: 9pt; color: #444;">Designation: _____________</span>
+                    </div>
+                    <div class="print-signature-box">
+                        <strong>Verified By</strong><br>
+                        <span style="font-size: 9pt; color: #444;">Name: ___________________</span><br>
+                        <span style="font-size: 9pt; color: #444;">Designation: _____________</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const oldTitle = document.title;
+        const tag = (meta.company && meta.company !== 'All Suppliers' ? meta.company : 'All_Suppliers').replace(/[^a-zA-Z0-9]/g, '_');
+        document.title = `Biomass_Report_${tag}_${new Date().toISOString().split('T')[0]}`;
+        setTimeout(() => {
+            window.print();
+            document.title = oldTitle;
+        }, 250);
+    }
+
     async function renderExecutiveDashboardData(forceFetch = false) {
+
         try {
             if (window.showGlobalLoader) window.showGlobalLoader('Loading Executive Management Dashboard...');
 
@@ -3687,6 +4058,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 return true;
             });
+
+            // Keep the current filtered slice available for the filtered report export
+            execFilterSnapshot.records = filteredRecords;
+            execFilterSnapshot.meta = {
+                period: document.getElementById('exec-filter-period')?.selectedOptions[0]?.textContent || 'All Time',
+                company: compFilter === 'ALL' ? 'All Suppliers' : compFilter,
+                status: statusFilter === 'ALL' ? 'All Statuses' : statusFilter,
+                search: searchQuery || '—',
+                range: (startBoundary ? startBoundary.toLocaleDateString() : 'Beginning') + ' → ' + (endBoundary ? endBoundary.toLocaleDateString() : 'Today')
+            };
+
+
 
             // Update Summary KPI Cards
             const totalCount = filteredRecords.length;

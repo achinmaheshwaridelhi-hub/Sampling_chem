@@ -161,9 +161,13 @@
                             <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-export-csv" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-weight: 600; border-radius: 8px; padding: 0.5rem 0.9rem;">
                                 📥 Export CSV
                             </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-export-filtered" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; font-weight: 700; border-radius: 8px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);">
+                                🧾 Download Filtered Report
+                            </button>
                             <button type="button" class="btn btn-secondary btn-sm" id="exec-btn-export-pdf" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; font-weight: 700; border-radius: 8px; padding: 0.5rem 1rem; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);">
                                 📄 Print / PDF Report
                             </button>
+
                         </div>
                     </div>
 
@@ -588,8 +592,9 @@
                                 <input type="number" id="weigh-edit-gross" placeholder="e.g. 24800" required>
                             </div>
                             <div class="form-group">
-                                <label for="weigh-edit-tare">Tare Weight (kg)</label>
-                                <input type="number" id="weigh-edit-tare" placeholder="e.g. 11500" required>
+                                <label for="weigh-edit-tare">Final / Tare Weight (kg)</label>
+                                <input type="number" id="weigh-edit-tare" placeholder="e.g. 11500">
+
                             </div>
                             <div class="form-group">
                                 <label>Calculated Net Weight (kg)</label>
@@ -983,33 +988,12 @@
             <div class="card" style="margin-bottom: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <div>
-                        <h3 class="card-title" style="margin-bottom: 0.25rem;">After Weighment — Unloading Clearance &amp; Final Tare Log</h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">View all incoming consignments, check lab moisture clearance, and record final truck tare weights after unloading.</p>
+                        <h3 class="card-title" style="margin-bottom: 0.25rem;">After Weighment — Unloading Clearance Board</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">View all incoming consignments, driver details, and check lab moisture clearance.</p>
                     </div>
                     <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 400px;">
-                        <input type="text" id="search-unloading-input" placeholder="🔍 Search truck no, reg no, company..." style="width: 100%;">
+                        <input type="text" id="search-unloading-input" placeholder="🔍 Search truck no, driver, reg no..." style="width: 100%;">
                     </div>
-                </div>
-
-                <div class="scan-trigger-section" id="unloading-scan-trigger" style="margin-top: 1rem; margin-bottom: 0.5rem; padding: 0.75rem 1rem;">
-                    <div class="scan-icon" style="font-size: 1.25rem;">📷</div>
-                    <div>
-                        <h4 style="margin-bottom: 0.15rem; font-size: 0.95rem;">Scan QR / Barcode (Optional)</h4>
-                        <p style="font-size: 0.75rem;">Quick scan to filter or jump directly to a truck's unloading record</p>
-                    </div>
-                </div>
-
-                <div id="unloading-scanner-container" style="display: none; position: relative; margin-bottom: 1rem;">
-                    <div class="camera-wrapper" style="aspect-ratio: 16/9; max-height: 200px;">
-                        <div id="unloading-qr-reader" style="width: 100%; height: 100%;"></div>
-                        <div class="scanner-laser"></div>
-                    </div>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-unloading-torch" style="width: 100%; margin-top: 0.5rem;">
-                        Torch On / Off
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-unloading-stop-scan" style="width: 100%; margin-top: 0.5rem;">
-                        Turn Camera Off
-                    </button>
                 </div>
             </div>
 
@@ -1021,51 +1005,17 @@
                             <tr>
                                 <th>Truck ID</th>
                                 <th>Date &amp; Time</th>
-                                <th>Company</th>
+                                <th>Driver Name</th>
                                 <th>Registration No.</th>
                                 <th>Challan No.</th>
-                                <th>Gross Wt (kg)</th>
                                 <th>Moisture &amp; Status</th>
-                                <th>Tare Wt (kg)</th>
-                                <th>Net Wt (kg)</th>
-                                <th style="text-align: center;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="table-unloading-body">
-                            <tr><td colspan="10" style="text-align: center;">Loading unloading entries...</td></tr>
+                            <tr><td colspan="6" style="text-align: center;">Loading unloading entries...</td></tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- Modal / Form Card for Unloading Weight Entry -->
-            <div class="card" id="unloading-result-card" style="display: none; margin-top: 1.5rem; border: 2px solid var(--primary);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 class="card-title" id="unloading-modal-title">Record Final Weight (After Unloading)</h3>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('unloading-result-card').style.display='none'">✕ Close</button>
-                </div>
-                <div id="unloading-status-banner" class="alert" style="display: none; margin-bottom: 1rem;"></div>
-
-                <form id="unloading-weight-form">
-                    <input type="hidden" id="unloading-weight-truck-id">
-                    <div class="grid-3">
-                        <div class="form-group">
-                            <label for="unloading-weight-gross">Gross Weight (kg)</label>
-                            <input type="number" id="unloading-weight-gross" readonly style="background: rgba(255,255,255,0.05); color: var(--text-muted);">
-                        </div>
-                        <div class="form-group">
-                            <label for="unloading-weight-tare">Tare Weight (kg)</label>
-                            <input type="number" id="unloading-weight-tare" placeholder="Enter empty truck weight..." required>
-                        </div>
-                        <div class="form-group">
-                            <label>Calculated Net Weight</label>
-                            <div id="unloading-weight-net" style="font-size: 1.5rem; font-weight: 700; color: var(--primary); padding-top: 0.5rem;">0 kg</div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-                        Submit Final Weight &amp; Close Entry
-                    </button>
-                </form>
             </div>
         </section>
 
@@ -1132,8 +1082,48 @@
                                     <input type="number" step="0.01" id="lab1-moisture" placeholder="0.00" required min="0" max="100">
                                 </div>
                                 <div class="form-group" id="lab1-fineness-group">
-                                    <label for="lab1-fineness">Fineness Value (%)</label>
-                                    <input type="number" step="0.01" id="lab1-fineness" placeholder="0.00" required min="0" max="100">
+                                    <label>Fineness — Weight Based Calculation</label>
+                                    <!-- Computed fineness value, submitted with the sample -->
+                                    <input type="hidden" id="lab1-fineness">
+
+                                    <div class="fineness-step">
+                                        <label for="lab1-fineness-initial">Initial Weight (i)</label>
+                                        <input type="number" step="0.001" id="lab1-fineness-initial" placeholder="0.000" min="0" disabled>
+                                        <div class="fineness-photo-row">
+                                            <button type="button" class="btn btn-secondary btn-sm" id="btn-fineness-initial-photo">📷 Capture Scale Photo</button>
+                                            <span id="fineness-initial-photo-status" class="badge badge-pending">Photo Required</span>
+                                        </div>
+                                        <img id="fineness-initial-photo-preview" class="fineness-photo-preview" style="display: none;" alt="Initial weight scale reading">
+                                    </div>
+
+                                    <div class="fineness-step">
+                                        <label for="lab1-fineness-final">Final Weight (f)</label>
+                                        <input type="number" step="0.001" id="lab1-fineness-final" placeholder="0.000" min="0" disabled>
+                                        <div class="fineness-photo-row">
+                                            <button type="button" class="btn btn-secondary btn-sm" id="btn-fineness-final-photo">📷 Capture Scale Photo</button>
+                                            <span id="fineness-final-photo-status" class="badge badge-pending">Photo Required</span>
+                                        </div>
+                                        <img id="fineness-final-photo-preview" class="fineness-photo-preview" style="display: none;" alt="Final weight scale reading">
+                                    </div>
+
+                                    <div class="fineness-result">
+                                        <span>Fineness (f / i) × 100</span>
+                                        <strong id="lab1-fineness-display">—</strong>
+                                    </div>
+
+                                    <!-- Fineness Live Camera Stream Modal (Camera Only - Gallery Browsing Blocked) -->
+                                    <div class="card" id="fineness-camera-panel" style="display: none; margin-top: 1rem; border: 2px solid var(--primary); background: var(--bg-card);">
+                                        <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;" id="fineness-camera-title">📷 Live Scale Photo Capture</h4>
+                                        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">Point device camera at scale reading. File uploads are disabled for security.</p>
+                                        <div class="camera-wrapper" style="aspect-ratio: 4/3; max-height: 240px;">
+                                            <video id="fineness-webcam-feed" autoplay playsinline class="camera-preview"></video>
+                                            <div class="camera-overlay-box"></div>
+                                        </div>
+                                        <div class="camera-controls" style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+                                            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-fineness-photo" style="flex: 1;">Cancel</button>
+                                            <button type="button" class="btn btn-primary btn-sm" id="btn-snap-fineness-photo" style="flex: 2;">📸 Snap Scale Photo</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
